@@ -23,6 +23,7 @@ config['seed'] = args.seed
 config['test_ratio'] = args.test_ratio
 config['u_sim'] = args.u_sim
 config['i_sim'] = args.i_sim
+config['sim'] = args.sim
 config['edge'] = args.edge
 config['i_K'] = args.i_K
 config['u_K'] = args.u_K

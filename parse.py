@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('--test_ratio', type=float, default=0.2)
     parser.add_argument('--u_sim', type=str, default='cos', help='options are cos (cosine) and jac (jaccard)')
     parser.add_argument('--i_sim', type=str, default='cos', help='options are cos (cosine) and jac (jaccard)')
+    parser.add_argument('--sim', type=str, default='ind', help='options are ind (inductive mode) and trans (transductive mode)')
     parser.add_argument('--edge', type=str, default='knn', help='options are knn (similarity graph) and bi (bi-partite graph)')
     parser.add_argument('--u_K', type=int, default=20)
     parser.add_argument('--i_K', type=int, default=20)
