@@ -113,7 +113,7 @@ def create_uuii_adjmat(df, verbose=-1):
     return combined_adjacency
 
 
-def create_uuii_adjmat2(df, verbose=-1):
+def create_uuii_adjmat_from_feature_data(df, verbose=-1):
 
     # Configuration parameters
     u_sim = config['u_sim']
