@@ -18,5 +18,5 @@ Pytorch Implementation of DySimGCF:  A Similarity-Centric Graph Convolutional Ne
 
 
 -- To run an experiment with ml-100k for DySimGCF in transductive mode (creating similarity matrices using user and movie feature data), use the following command:
-   python main.py --layers=3 --decay=1e-03 --model=DySimGCF  --epochs=1001 --verbose=1 --sim=trans
+   python main.py --layers=3 --decay=1e-03 --model=DySimGCF  --epochs=1001 --verbose=1 --u_K=900 --i_K=900 --sim=trans # here we only have one option of using ml-100k dataset.
 
