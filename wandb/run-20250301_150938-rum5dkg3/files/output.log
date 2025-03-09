@@ -1,0 +1,76 @@
+Device: cpu
+dataset: [1;31mml-100k [0m| seed: 2020 | exp: 1 | device: cpu
+[1;31mTrainset[0m | #users: 943, #items: 1657, #interactions: 79619
+ [1;31mTestset[0m | #users: 943, #items: 1376, #interactions: 20352
+Creating an user-item matrix ...
+The user-item coo matrix was created.
+Computing cosine similarity by top-k...
+Cosine similarity computed.
+Filtering top-k values...
+Preparing [1;31m cosine [0m similarity matrix | Top-K: 80: ❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯ 100% | 00:00[0m
+The user-user similarity matrix was created.
+Computing cosine similarity by top-k...
+Cosine similarity computed.
+Filtering top-k values...
+Preparing [1;31m cosine [0m similarity matrix | Top-K: 10: ❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯ 100% | 00:00[0m
+The item-item similarity matrix was created.
+DySimGCF(2020) | #ed  92010 | ep(1001) 9 | ba(78)  71 | loss 0.2695: ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   1% | 00:30, prec [1;31m0.0168[0m | recall [1;31m0.0183[0m | ncdg [1;31m0.0209 (0.0209, 0.0183, 0.0168 at 0) [0m
+Traceback (most recent call last):
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/main.py", line 72, in <module>
+    losses, metrics = exec_exp(train_df, test_df, exp_n, seed, device, config['verbose'])
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/procedure.py", line 215, in exec_exp
+    losses, metrics = train_and_eval(cf_model,
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/procedure.py", line 120, in train_and_eval
+    u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
+                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/model.py", line 169, in encode_minibatch
+    emb0, out = self(edge_index, edge_attrs)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/model.py", line 156, in forward
+    emb = conv(x=emb, edge_index=edge_index, edge_attrs=edge_attrs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/model.py", line 103, in forward
+    return self.propagate(edge_index, x=x, norm=self.graph_norms)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/folders/2m/r4mxd0554dd8rsw6pz5ppz7w0000gn/T/model_DySimGCF_propagate_0j1jopdp.py", line 212, in propagate
+    out = self.aggregate(
+          ^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/nn/conv/message_passing.py", line 594, in aggregate
+    return self.aggr_module(inputs, index, ptr=ptr, dim_size=dim_size,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/experimental.py", line 117, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/nn/aggr/base.py", line 131, in __call__
+    return super().__call__(x, index=index, ptr=ptr, dim_size=dim_size,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/nn/aggr/basic.py", line 22, in forward
+    return self.reduce(x, index, ptr, dim_size, dim, reduce='sum')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/nn/aggr/base.py", line 185, in reduce
+    return scatter(x, index, dim, dim_size, reduce)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/site-packages/torch_geometric/utils/_scatter.py", line 75, in scatter
+    return src.new_zeros(size).scatter_add_(dim, index, src)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

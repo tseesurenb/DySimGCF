@@ -1,0 +1,53 @@
+{
+  "os":  "macOS-15.3.1-arm64-arm-64bit",
+  "python":  "CPython 3.12.2",
+  "startedAt":  "2025-03-01T04:34:32.947451Z",
+  "args":  [
+    "--layers=3",
+    "--decay=1e-03",
+    "--model=DySimGCF",
+    "--epochs=101",
+    "--verbose=1",
+    "--u_K=80",
+    "--i_K=10"
+  ],
+  "program":  "/Users/tseesurenb/Desktop/Research/Models/DySimGCF/main.py",
+  "codePath":  "main.py",
+  "git":  {
+    "remote":  "https://github.com/tseesurenb/DySimGCF.git",
+    "commit":  "558fcda2bf5e301b2933213e6da4f833407318d0"
+  },
+  "email":  "tseesuren@gmail.com",
+  "root":  "/Users/tseesurenb/Desktop/Research/Models/DySimGCF",
+  "host":  "Tseesurens-MacBook-Pro.local",
+  "executable":  "/opt/anaconda3/bin/python",
+  "codePathLocal":  "main.py",
+  "cpu_count":  10,
+  "cpu_count_logical":  10,
+  "disk":  {
+    "/":  {
+      "total":  "494384795648",
+      "used":  "458873044992"
+    },
+    "/System/Volumes/Data":  {
+      "total":  "494384795648",
+      "used":  "458873044992"
+    }
+  },
+  "memory":  {
+    "total":  "17179869184"
+  },
+  "cpu":  {
+    "count":  10,
+    "countLogical":  10
+  },
+  "apple":  {
+    "name":  "Apple M2 Pro",
+    "ecpuCores":  4,
+    "pcpuCores":  6,
+    "gpuCores":  16,
+    "memoryGb":  16,
+    "swapTotalBytes":  "2147483648",
+    "ramTotalBytes":  "17179869184"
+  }
+}

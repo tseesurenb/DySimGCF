@@ -1,0 +1,17 @@
+Device: cpu
+dataset: [1;31mml-100k [0m| seed: 2020 | exp: 1 | device: cpu
+[1;31mTrainset[0m | #users: 943, #items: 1657, #interactions: 79619
+ [1;31mTestset[0m | #users: 943, #items: 1376, #interactions: 20352
+Creating an user-item matrix ...
+The user-item coo matrix was created.
+Computing cosine similarity by top-k...
+Cosine similarity computed.
+Filtering top-k values...
+Preparing [1;31m cosine [0m similarity matrix | Top-K: 80: ❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯ 100% | 00:00[0m
+The user-user similarity matrix was created.
+Computing cosine similarity by top-k...
+Cosine similarity computed.
+Filtering top-k values...
+Preparing [1;31m cosine [0m similarity matrix | Top-K: 10: ❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯ 100% | 00:00[0m
+The item-item similarity matrix was created.
+DySimGCF(2020) | #ed  92010 | ep(11) 10 | ba(78)  77 | loss 0.3070: ❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯❯ 100% | 00:33, prec [1;31m0.2217[0m | recall [1;31m0.2576[0m | ncdg [1;31m0.3201 (0.3201, 0.2576, 0.2217 at 10) [0m

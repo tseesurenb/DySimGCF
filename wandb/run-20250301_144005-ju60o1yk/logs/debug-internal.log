@@ -1,0 +1,17 @@
+{"time":"2025-03-01T14:40:05.702641+11:00","level":"INFO","msg":"stream: starting","core version":"0.19.7","symlink path":"/Users/tseesurenb/Desktop/Research/Models/DySimGCF/wandb/run-20250301_144005-ju60o1yk/logs/debug-core.log"}
+{"time":"2025-03-01T14:40:05.814991+11:00","level":"INFO","msg":"created new stream","id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:05.815045+11:00","level":"INFO","msg":"stream: started","id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:05.815105+11:00","level":"INFO","msg":"handler: started","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:05.815272+11:00","level":"INFO","msg":"writer: Do: started","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:05.815283+11:00","level":"INFO","msg":"sender: started","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:06.025163+11:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-03-01T14:40:06.025478+11:00","level":"ERROR","msg":"sender: upsertRun:","error":"failed to upsert bucket: returned error 404 Not Found: {\"errors\":[{\"message\":\"entity my-awesome-team-name not found during upsertBucket\",\"path\":[\"upsertBucket\"]}],\"data\":{\"upsertBucket\":null}}"}
+{"time":"2025-03-01T14:40:06.036065+11:00","level":"INFO","msg":"stream: closing","id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:06.036355+11:00","level":"ERROR","msg":"sender: upsertConfig: RunRecord is nil"}
+{"time":"2025-03-01T14:40:06.272654+11:00","level":"ERROR","msg":"HTTP error","status":404,"method":"POST","url":"https://api.wandb.ai/graphql"}
+{"time":"2025-03-01T14:40:06.272706+11:00","level":"ERROR","msg":"runfiles: CreateRunFiles returned error: returned error 404 Not Found: {\"errors\":[{\"message\":\"entity my-awesome-team-name not found during createRunFiles\",\"path\":[\"createRunFiles\"]}],\"data\":{\"createRunFiles\":null}}"}
+{"time":"2025-03-01T14:40:06.276217+11:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-03-01T14:40:06.276261+11:00","level":"INFO","msg":"handler: closed","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:06.276265+11:00","level":"INFO","msg":"writer: Close: closed","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:06.276273+11:00","level":"INFO","msg":"sender: closed","stream_id":"ju60o1yk"}
+{"time":"2025-03-01T14:40:06.276344+11:00","level":"INFO","msg":"stream: closed","id":"ju60o1yk"}
