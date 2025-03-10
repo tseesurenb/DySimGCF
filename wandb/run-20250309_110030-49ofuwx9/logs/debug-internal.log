@@ -6,3 +6,12 @@
 {"time":"2025-03-09T11:00:30.705561+11:00","level":"INFO","msg":"handler: started","stream_id":"49ofuwx9"}
 {"time":"2025-03-09T11:00:31.089287+11:00","level":"INFO","msg":"Starting system monitor"}
 {"time":"2025-03-09T11:01:48.981542+11:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/tseesuren-novelsoft/dysimgcf/49ofuwx9/file_stream\": read tcp 10.126.127.151:49480->35.186.228.49:443: read: connection reset by peer"}
+{"time":"2025-03-09T11:51:13.415063+11:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-03-09T11:51:13.417397+11:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-03-09T11:51:14.429838+11:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.566260834,"progress":"1.2KB/1.2KB"},{"desc":"uploading wandb-summary.json","runtime_seconds":0.564835792,"progress":"252B/252B"},{"desc":"uploading config.yaml","runtime_seconds":0.335878334,"progress":"938B/938B"}],"total_operations":3}}
+{"time":"2025-03-09T11:51:15.073559+11:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-03-09T11:51:17.550867+11:00","level":"INFO","msg":"stream: closing","id":"49ofuwx9"}
+{"time":"2025-03-09T11:51:17.551066+11:00","level":"INFO","msg":"writer: Close: closed","stream_id":"49ofuwx9"}
+{"time":"2025-03-09T11:51:17.551199+11:00","level":"INFO","msg":"handler: closed","stream_id":"49ofuwx9"}
+{"time":"2025-03-09T11:51:17.551314+11:00","level":"INFO","msg":"sender: closed","stream_id":"49ofuwx9"}
+{"time":"2025-03-09T11:51:17.551334+11:00","level":"INFO","msg":"stream: closed","id":"49ofuwx9"}

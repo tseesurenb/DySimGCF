@@ -274,3 +274,4 @@ def load_data_from_adj_list(dataset = "lastfm", verbose = 0):
     gc.collect()
         
     return train_df, test_df
+

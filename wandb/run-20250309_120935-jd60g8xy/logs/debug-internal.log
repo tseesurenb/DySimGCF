@@ -1,0 +1,18 @@
+{"time":"2025-03-09T12:09:35.462884+11:00","level":"INFO","msg":"stream: starting","core version":"0.19.7","symlink path":"/Users/tseesurenb/Desktop/Research/Models/DySimGCF/wandb/run-20250309_120935-jd60g8xy/logs/debug-core.log"}
+{"time":"2025-03-09T12:09:35.573604+11:00","level":"INFO","msg":"created new stream","id":"jd60g8xy"}
+{"time":"2025-03-09T12:09:35.573695+11:00","level":"INFO","msg":"stream: started","id":"jd60g8xy"}
+{"time":"2025-03-09T12:09:35.573748+11:00","level":"INFO","msg":"handler: started","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:09:35.574127+11:00","level":"INFO","msg":"writer: Do: started","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:09:35.57432+11:00","level":"INFO","msg":"sender: started","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:09:35.891317+11:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-03-09T12:12:36.71801+11:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/tseesuren-novelsoft/dysimgcf/jd60g8xy/file_stream\": read tcp 10.126.127.151:51001->35.186.228.49:443: read: connection reset by peer"}
+{"time":"2025-03-09T12:47:06.766866+11:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/tseesuren-novelsoft/dysimgcf/jd60g8xy/file_stream\": read tcp 10.126.127.151:51570->35.186.228.49:443: read: connection reset by peer"}
+{"time":"2025-03-09T12:59:57.461561+11:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-03-09T12:59:57.463003+11:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-03-09T12:59:58.46946+11:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"uploading output.log","runtime_seconds":0.539786667,"progress":"1.2KB/1.2KB"},{"desc":"uploading config.yaml","runtime_seconds":0.315128083,"progress":"938B/938B"}],"total_operations":2}}
+{"time":"2025-03-09T12:59:58.607196+11:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-03-09T12:59:59.891473+11:00","level":"INFO","msg":"stream: closing","id":"jd60g8xy"}
+{"time":"2025-03-09T12:59:59.891618+11:00","level":"INFO","msg":"handler: closed","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:59:59.891654+11:00","level":"INFO","msg":"sender: closed","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:59:59.891645+11:00","level":"INFO","msg":"writer: Close: closed","stream_id":"jd60g8xy"}
+{"time":"2025-03-09T12:59:59.891853+11:00","level":"INFO","msg":"stream: closed","id":"jd60g8xy"}

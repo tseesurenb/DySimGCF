@@ -20,3 +20,11 @@ config: {'learning_rate': 0.001, 'architecture': 'DySimGCF', 'dataset': 'Ml-100k
 2025-03-09 11:00:31,364 INFO    MainThread:18726 [wandb_run.py:_redirect():2292] Wrapping output streams.
 2025-03-09 11:00:31,364 INFO    MainThread:18726 [wandb_run.py:_redirect():2317] Redirects installed.
 2025-03-09 11:00:31,366 INFO    MainThread:18726 [wandb_init.py:init():1037] run started, returning control to user process
+2025-03-09 11:51:13,411 INFO    MainThread:18726 [wandb_run.py:_finish():2112] finishing run tseesuren-novelsoft/dysimgcf/49ofuwx9
+2025-03-09 11:51:13,413 INFO    MainThread:18726 [wandb_run.py:_atexit_cleanup():2342] got exitcode: 0
+2025-03-09 11:51:13,413 INFO    MainThread:18726 [wandb_run.py:_restore():2324] restore
+2025-03-09 11:51:13,413 INFO    MainThread:18726 [wandb_run.py:_restore():2330] restore done
+2025-03-09 11:51:17,542 INFO    MsgRouterThr:18726 [mailbox.py:close():115] Closing mailbox, abandoning 1 handles.
+2025-03-09 11:51:17,543 INFO    MainThread:18726 [wandb_run.py:_footer_history_summary_info():3958] rendering history
+2025-03-09 11:51:17,544 INFO    MainThread:18726 [wandb_run.py:_footer_history_summary_info():3990] rendering summary
+2025-03-09 11:51:17,546 INFO    MainThread:18726 [wandb_run.py:_footer_sync_info():3919] logging synced files

@@ -13,6 +13,7 @@ from tqdm import tqdm
 from model import RecSysGNN, get_all_predictions
 from world import config
 from data_prep import get_edge_index, create_uuii_adjmat, create_uuii_adjmat_from_feature_data
+from spectral_transform import construct_laplacian, spectral_transform, compute_spectral_similarities, create_edges_from_similarities
 
 import wandb
 
@@ -65,7 +66,7 @@ def compute_bpr_loss_multi_sample(users, users_emb, pos_emb, neg_emb, user_emb0,
         
     return bpr_loss, reg_loss
 
-def compute_bpr_loss_simple(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
     
     # Compute regularization loss
     reg_loss = (1 / 2) * (
@@ -80,14 +81,10 @@ def compute_bpr_loss_simple(users, users_emb, pos_emb, neg_emb, user_emb0, pos_e
     
     bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores))  # Using softplus for stability
         
-    return bpr_loss, reg_loss
-
-import torch
-import torch.nn.functional as F
+    return bpr_loss, reg_loss, None
 
 # Compute BPR loss and Contrastive Loss
-
-def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, 
+def compute_bpr_loss_contrast(users, users_emb, pos_emb, neg_emb, 
                                  user_emb0, pos_emb0, neg_emb0, 
                                  temperature=0.1, lambda_contrastive=0.05):
     
@@ -149,7 +146,7 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
     
     for epoch in pbar:
     
-        total_losses, bpr_losses, reg_losses  = [], [], []
+        total_losses, bpr_losses, reg_losses, contrast_losses  = [], [], [], []
         
         # Shuffle the DataFrame
         train_df = train_df.sample(frac=1).reset_index(drop=True)
@@ -192,8 +189,11 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
             
             reg_loss = decay * reg_loss
             
-            lambda_contrastive = 0.05
-            total_loss = bpr_loss + reg_loss + lambda_contrastive * contrast_loss
+            if contrast_loss != None:
+                lambda_contrastive = 0.05
+                total_loss = bpr_loss + reg_loss + lambda_contrastive * contrast_loss
+            else:
+                total_loss = bpr_loss + reg_loss
             
             optimizer.zero_grad()
             total_loss.backward()
@@ -202,6 +202,9 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
             bpr_losses.append(bpr_loss.detach().item())
             reg_losses.append(reg_loss.detach().item())
             total_losses.append(total_loss.detach().item())
+            
+            if contrast_loss != None:
+                contrast_losses.append(contrast_loss.detach().item())
             
             # Update the description of the outer progress bar with batch information
             pbar.set_description(f"{config['model']}({g_seed:2}) | #ed {len(edge_index[0]):6} | ep({epochs}) {epoch} | ba({n_batches}) {b_i:3} | loss {total_loss.detach().item():.4f}")
@@ -217,8 +220,11 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
         losses['reg_loss'].append(round(np.mean(reg_losses), 4) if reg_losses else np.nan)
         losses['total_loss'].append(round(np.mean(total_losses), 4) if total_losses else np.nan)
         
-        run.log({"ncdg": ncdg, "recall@20": recall, "reg_loss": np.mean(reg_losses), "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
-        
+        if contrast_loss != None:
+            run.log({"ncdg": ncdg, "recall@20": recall, "reg_loss": np.mean(reg_losses), "contrast_loss": np.mean(contrast_losses),  "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
+        else:
+            run.log({"ncdg": ncdg, "recall@20": recall, "reg_loss": np.mean(reg_losses), "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
+            
     return (losses, metrics)
 
 def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', verbose = -1):
@@ -270,6 +276,50 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
                     
         edge_index = knn_edge_index.to(device)
         edge_attrs = torch.tensor(knn_edge_attrs).to(device)
+        
+    if config['edge'] == 'spectral': # edge from a spectral graph
+        # Execute spectral domain processing
+        laplacian, adjacency = construct_laplacian(_train_df, N_USERS, N_ITEMS)
+        
+        # Get parameters from config
+        k_eigenvectors = config.get('k_eigenvectors', 200)
+        k_users = config['u_K']
+        k_items = config['i_K']
+        similarity_type = config.get('similarity_type', 'cosine')
+        
+        eigenvalues, eigenvectors = spectral_transform(laplacian, k=k_eigenvectors)
+        
+        # Apply anisotropic diffusion if enabled (from S-Diff approach)
+        if config.get('use_anisotropic', False):
+            print(f"{bg}Applying anisotropic diffusion in spectral domain{rs}")
+            # Prepare eigenvalues for anisotropic diffusion
+            # Lower eigenvalues correspond to lower frequencies that we want to preserve
+            alpha_min = config.get('alpha_min', 0.1)  # Minimum preservation factor
+            sigma_max = config.get('sigma_max', 0.5)  # Maximum noise level
+            
+            # Use scheduled noise based on eigenvalues (following S-Diff approach)
+            alpha_t = (1 - alpha_min) * np.exp(-eigenvalues) + alpha_min
+            sigma_t = np.minimum(np.sqrt(1 - alpha_t**2), sigma_max)
+            
+            # Apply anisotropic diffusion in spectral domain
+            noise = np.random.normal(0, 1, eigenvectors.shape)
+            diffused_eigenvectors = alpha_t * eigenvectors + sigma_t[:, np.newaxis] * noise
+            eigenvectors = diffused_eigenvectors
+        
+        user_similarity, item_similarity = compute_spectral_similarities(
+            eigenvectors, N_USERS, N_ITEMS, similarity_type=similarity_type
+        )
+        
+        # Create edges from computed similarities
+        spectral_edge_index, spectral_edge_attrs = create_edges_from_similarities(
+            user_similarity, item_similarity, k_users, k_items, N_USERS
+        )
+        
+        edge_index = torch.tensor(spectral_edge_index).to(device).long()
+        edge_attrs = torch.tensor(spectral_edge_attrs).to(device).float()
+        
+        print(f"{bg}Spectral processing complete. Created {len(edge_attrs)} edges{rs}")
+            
     
     cf_model = RecSysGNN(model=config['model'], 
                          emb_dim=config['emb_dim'],  
