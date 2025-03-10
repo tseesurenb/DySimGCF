@@ -282,7 +282,7 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
         laplacian, adjacency = construct_laplacian(_train_df, N_USERS, N_ITEMS)
         
         # Get parameters from config
-        k_eigenvectors = config.get('k_eigenvectors', 200)
+        k_eigenvectors = config['eigen_k']
         k_users = config['u_K']
         k_items = config['i_K']
         similarity_type = config.get('similarity_type', 'cosine')

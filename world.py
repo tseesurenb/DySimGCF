@@ -27,6 +27,7 @@ config['sim'] = args.sim
 config['edge'] = args.edge
 config['i_K'] = args.i_K
 config['u_K'] = args.u_K
+config['eigen_K'] = args.eigen_K
 config['abl_study'] = args.abl_study
 config['self_loop'] = bool(args.self_loop)
 config['shuffle'] = args.shuffle

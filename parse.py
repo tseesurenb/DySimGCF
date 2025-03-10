@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('--edge', type=str, default='knn', help='options are knn (similarity graph) and bi (bi-partite graph)')
     parser.add_argument('--u_K', type=int, default=20)
     parser.add_argument('--i_K', type=int, default=20)
+    parser.add_argument('--eigen_K', type=int, default=300)
     parser.add_argument('--abl_study', type=int, default=0)
     parser.add_argument('--self_loop', type=bool, default=False)
     parser.add_argument('--shuffle', type=bool, default=False)
