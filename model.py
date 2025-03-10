@@ -87,8 +87,13 @@ class DySimGCF(MessagePassing):
         if self.graph_norms is None:
           
           from_, to_ = edge_index      
-          incoming_norm = softmax(edge_attrs, to_)
-          outgoing_norm = softmax(edge_attrs, from_)
+          # incoming_norm = softmax(edge_attrs, to_)
+          # outgoing_norm = softmax(edge_attrs, from_)
+        
+          # You could add a temperature parameter to control softmax sharpness
+          temperature = config['s_temp']
+          incoming_norm = softmax(edge_attrs / temperature, to_)
+          outgoing_norm = softmax(edge_attrs / temperature, from_)
           
           if config['abl_study'] == -1:
             norm = outgoing_norm
@@ -97,12 +102,7 @@ class DySimGCF(MessagePassing):
           else:
             norm = torch.sqrt(incoming_norm * outgoing_norm)
           
-          # Optional normalization adjustment for spectral similarities
-          if config['edge'] == 'spectral':
-              # You could add a temperature parameter to control softmax sharpness
-              temperature = config.get('softmax_temperature', 1.0)
-              incoming_norm = softmax(edge_attrs / temperature, to_)
-              outgoing_norm = softmax(edge_attrs / temperature, from_)
+          
       
           self.graph_norms = norm
                     

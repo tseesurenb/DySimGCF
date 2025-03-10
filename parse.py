@@ -18,6 +18,7 @@ def parse_args():
     parser.add_argument('--verbose', type=int, default=-1)
     parser.add_argument('--lr', type=float, default=0.001, help="the learning rate")
     parser.add_argument('--decay', type=float, default=1e-04, help="the weight decay for l2 normalizaton")
+    parser.add_argument('--s_temp', type=float, default=1.0, help="temperature for softmax normalization")
     parser.add_argument('--top_K', type=int, default=20, help="@k test list")
     parser.add_argument('--test_ratio', type=float, default=0.2)
     parser.add_argument('--u_sim', type=str, default='cos', help='options are cos (cosine) and jac (jaccard)')
