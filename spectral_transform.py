@@ -1,5 +1,6 @@
 import scipy.sparse as sp
 from scipy.sparse.linalg import eigsh
+import numpy as np
         
 # Construct Laplacian matrix
 def construct_laplacian(_train_df, N_USERS, N_ITEMS):
