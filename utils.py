@@ -19,8 +19,6 @@ import pandas as pd
 from world import config
 from sklearn import preprocessing as pp
 
-
-
 # ANSI escape codes for bold and red
 br = "\033[1;31m"
 b = "\033[1m"
