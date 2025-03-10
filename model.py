@@ -96,7 +96,14 @@ class DySimGCF(MessagePassing):
             norm = incoming_norm
           else:
             norm = torch.sqrt(incoming_norm * outgoing_norm)
-            
+          
+          # Optional normalization adjustment for spectral similarities
+          if config['edge'] == 'spectral':
+              # You could add a temperature parameter to control softmax sharpness
+              temperature = config.get('softmax_temperature', 1.0)
+              incoming_norm = softmax(edge_attrs / temperature, to_)
+              outgoing_norm = softmax(edge_attrs / temperature, from_)
+      
           self.graph_norms = norm
                     
         # Start propagating messages (no update after aggregation)
