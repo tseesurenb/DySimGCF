@@ -39,4 +39,5 @@ config['save_pred'] = args.save_pred
 config['save_model'] = args.save_model
 config['margin'] = args.margin
 config['load'] = args.load
+config['diff'] = args.diff
 config['s_temp'] = args.s_temp

@@ -80,10 +80,15 @@ def encode_ids(train_df: pd.DataFrame, test_df: pd.DataFrame) -> tuple:
         'encoded_item_id': range(len(le_item.classes_))
     })
     
-    # Save mappings to CSV files
-    user_mapping.to_csv(f"data/{config['dataset']}/user_id_mapping.csv", index=False)
-    item_mapping.to_csv(f"data/{config['dataset']}/item_id_mapping.csv", index=False)
-        
+    if config['diff'] == False:
+        # Save mappings to CSV files
+        user_mapping.to_csv(f"data/{config['dataset']}/user_id_mapping.csv", index=False)
+        item_mapping.to_csv(f"data/{config['dataset']}/item_id_mapping.csv", index=False)
+    else:
+        # Save mappings to CSV files
+        user_mapping.to_csv(f"diff_data/{config['dataset']}/user_id_mapping_diff.csv", index=False)
+        item_mapping.to_csv(f"diff_data/{config['dataset']}/item_id_mapping_diff.csv", index=False)
+            
     return train_df, test_df
 
 def get_metrics(user_Embed_wts, item_Embed_wts, test_df, K, interactions_t, device, batch_size=100):

@@ -31,7 +31,7 @@ os.makedirs(pred_dir, exist_ok=True)
     
 
 # STEP 2: Load the data
-train_df, test_df = dp.load_data_from_adj_list(dataset = config['dataset'])
+train_df, test_df = dp.load_data_from_adj_list(dataset = config['dataset'], diff=config['diff'])
 
 num_users = train_df['user_id'].nunique()
 num_items = train_df['item_id'].nunique()

@@ -240,32 +240,49 @@ def create_item_similarity_dict_20(item_item_sim_matrix, top_n=10, verbose=0):
     return item_similarity_dict
 
 
-def load_data_from_adj_list(dataset = "lastfm", verbose = 0):
+def load_data_from_adj_list(dataset = "lastfm", verbose = 0, diff = False):
     
     train_df = None
     test_df = None
     df = None
     
-    datasets = ['amazon_book', 'yelp2018', 'lastfm', 'gowalla', 'itstore', 'ml-1m', 'ml-100k', 'ml-100k_2']
-    
+    datasets = ['amazon_book', 'yelp2018', 'lastfm', 'gowalla', 'itstore', 'ml_1m', 'ml_100k', 'ml-100k_2']
+
     if dataset not in datasets:
         print(f'{br} The dataset {dataset} is not supported yet !!!{rs}')
         return
-                      
-    # Paths for ML-1M data files
-    train_path = f'data/{dataset}/train_coo.txt'
-    test_path = f'data/{dataset}/test_coo.txt'
     
-    # Load the entire ratings dataframe into memory
-    df = pd.read_csv(train_path, header=0, sep=' ')
-    # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
-    train_df = df[['user_id', 'item_id']]
-                            
-    # Load the entire ratings dataframe into memory
-    df = pd.read_csv(test_path, header=0, sep=' ')
-    # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
-    test_df = df[['user_id', 'item_id']]
+    if diff == False:                      
+        # Paths for ML-1M data files
+        train_path = f'data/{dataset}/train_coo.txt'
+        test_path = f'data/{dataset}/test_coo.txt'
+        
+        # Load the entire ratings dataframe into memory
+        df = pd.read_csv(train_path, header=0, sep=' ')
+        # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
+        train_df = df[['user_id', 'item_id']]
+                                
+        # Load the entire ratings dataframe into memory
+        df = pd.read_csv(test_path, header=0, sep=' ')
+        # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
+        test_df = df[['user_id', 'item_id']]
     
+    if diff == True:
+        
+        # Paths for ML-1M data files
+        train_path = f'diff_data/{dataset}/train_list.npy'
+        test_path = f'diff_data/{dataset}/test_list.npy'
+        
+        # Load the entire ratings dataframe into memory
+        df = np.load(train_path, allow_pickle=True)
+        # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
+        train_df = pd.DataFrame(df, columns = ['user_id', 'item_id'])
+        
+        # Load the entire ratings dataframe into memory
+        df = np.load(test_path, allow_pickle=True)
+        # Select the relevant columns 'asin', 'user_id', 'rating', 'timestamp'
+        test_df = pd.DataFrame(df, columns = ['user_id', 'item_id'])
+        
     if verbose > 0:
         print(f'{bg}Data loaded for dataset: {dataset} !!!{rs}')
         print(f'{b}Train data shape: {train_df.shape}, Test data shape: {test_df.shape}{rs}')
