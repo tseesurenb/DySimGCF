@@ -41,3 +41,11 @@ config['margin'] = args.margin
 config['load'] = args.load
 config['diff'] = args.diff
 config['s_temp'] = args.s_temp
+
+# Add these lines to your config setup
+config['K'] = args.K if hasattr(args, 'K') else 10.0  # Default to 10.0 if not provided
+config['solver'] = args.solver if hasattr(args, 'solver') else 'dopri5'
+config['time_split'] = args.time_split if hasattr(args, 'time_split') else 3
+config['learnable_time'] = args.learnable_time if hasattr(args, 'learnable_time') else True
+config['dual_res'] = args.dual_res if hasattr(args, 'dual_res') else False
+config['max_time'] = args.K if hasattr(args, 'K') else 10.0  # Use same value as K

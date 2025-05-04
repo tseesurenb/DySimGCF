@@ -8,7 +8,7 @@ import argparse
 def parse_args():
     parser = argparse.ArgumentParser(prog="DySimGCF", description="Dynamic GCN-based CF recommender")
     parser.add_argument('--model', type=str, default='hyperGCN', help='rec-model, support [LightGCN, NGCF, DySimGCF]')
-    parser.add_argument('--dataset', type=str, default='ml-100k', help="available datasets: [ml-100k, yelp2018, amazon-book]")
+    parser.add_argument('--dataset', type=str, default='ml_100k', help="available datasets: [ml-100k, yelp2018, amazon-book]")
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--emb_dim', type=int, default=64, help="the embedding size for learning parameters")
     parser.add_argument('--layers', type=int, default=3, help="the layer num of GCN")
@@ -40,5 +40,12 @@ def parse_args():
     parser.add_argument('--save_model', type=bool, default=False)
     parser.add_argument('--save_sim_mat', type=bool, default=False)
     parser.add_argument('--margin', type=float, default=0.0, help="the margin in BPR loss")
+
+    # Add these to your parse_args function:
+    parser.add_argument('--K', type=float, default=10.0, help="Maximum integration time for ODE")
+    parser.add_argument('--solver', type=str, default='dopri5', help="ODE solver method")
+    parser.add_argument('--time_split', type=int, default=3, help="Number of time points for ODE")
+    parser.add_argument('--learnable_time', type=bool, default=True, help="Whether to use learnable time points")
+    parser.add_argument('--dual_res', type=bool, default=False, help="Whether to use dual residual connections")
     
     return parser.parse_args()

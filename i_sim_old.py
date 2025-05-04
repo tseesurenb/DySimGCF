@@ -16,44 +16,12 @@ bg = "\033[1;32m"
 bb = "\033[1;34m"
 rs = "\033[0m"
 
-def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min_k=10, max_k=100):
-    """
-    Compute Jaccard similarity between users/items and filter to keep top-k similar users/items.
-    
-    Parameters:
-    -----------
-    matrix : sparse matrix
-        User-item interaction matrix
-    top_k : int, default=20
-        Base K value for top-k filtering (used as base when adaptive=True)
-    self_loop : bool, default=False
-        Whether to include self-loops (diagonal elements)
-    verbose : int, default=-1
-        Verbosity level
-    adaptive : bool, default=True
-        Whether to use adaptive K values based on interaction counts
-    min_k : int, default=10
-        Minimum K value when using adaptive approach
-    max_k : int, default=100
-        Maximum K value when using adaptive approach
-        
-    Returns:
-    --------
-    filtered_similarity_matrix : sparse matrix
-        Filtered Jaccard similarity matrix
-    """
+def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1):
     if verbose > 0:
         print('Computing Jaccard similarity by top-k...')
     
     # Ensure the matrix is binary and of type int
     binary_matrix = csr_matrix((matrix > 0).astype(int))
-
-    # Calculate interaction counts for adaptive K if needed
-    if adaptive:
-        interaction_counts = np.array(binary_matrix.sum(axis=1)).flatten()
-        avg_interaction_count = max(1, np.mean(interaction_counts))  # Avoid division by zero
-        if verbose > 0:
-            print(f'Using adaptive K (base={top_k}, min={min_k}, max={max_k})')
 
     # Compute the intersection using dot product
     intersection = binary_matrix.dot(binary_matrix.T).toarray()  # Convert to dense format to avoid dtype issues
@@ -70,6 +38,8 @@ def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, mi
 
     # Compute Jaccard similarity
     similarity_matrix = np.divide(intersection, union, out=np.zeros_like(intersection, dtype=np.float32), where=union != 0)
+
+    #full_similarity_matrix = similarity_matrix.copy()  # Keep the full similarity matrix
     
     # If self_loop is False, set the diagonal to zero
     if self_loop:
@@ -83,32 +53,19 @@ def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, mi
     filtered_cols = []
     
     if verbose > 0:
-        desc = f'Preparing {br}adaptive jaccard{rs} similarity matrix' if adaptive else f'Preparing {br}jaccard{rs} similarity matrix | Top-K: {top_k}'
         print('Filtering top-k values...')
     
     pbar = tqdm(range(similarity_matrix.shape[0]), bar_format='{desc}{bar:30} {percentage:3.0f}% | {elapsed}{postfix}', ascii="░❯")
-    pbar.set_description(desc)
+    pbar.set_description(f'Preparing {br}jaccard{rs} similarity matrix | Top-K: {top_k}')
     
     for i in pbar:
-        # Determine K value for this user/item
-        if adaptive:
-            # Calculate adaptive K based on square root scaling
-            current_k = int(top_k * np.sqrt(interaction_counts[i]) / np.sqrt(avg_interaction_count))
-            current_k = max(min_k, min(current_k, max_k))
-            
-            # Add extra info to progress bar for debugging
-            if verbose > 1 and i % 1000 == 0:
-                pbar.set_postfix_str(f"User {i}: {interaction_counts[i]} interactions → K={current_k}")
-        else:
-            current_k = top_k
-        
         # Get the non-zero elements in the i-th row
         row = similarity_matrix[i]
         if np.count_nonzero(row) == 0:
             continue
         
         # Sort indices based on similarity values (in descending order) and select top K
-        top_k_idx = np.argsort(-row)[:current_k]
+        top_k_idx = np.argsort(-row)[:top_k]
         
         # Store the top K similarities
         filtered_data.extend(row[top_k_idx])
@@ -120,35 +77,9 @@ def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, mi
     
     del binary_matrix, intersection, row_sums, union, similarity_matrix, filtered_data, filtered_rows, filtered_cols
     
-    return filtered_similarity_matrix.tocsr()
+    return filtered_similarity_matrix.tocsr() #, csr_matrix(full_similarity_matrix)
 
-
-def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min_k=10, max_k=100):
-    """
-    Compute cosine similarity between users/items and filter to keep top-k similar users/items.
-    
-    Parameters:
-    -----------
-    matrix : sparse matrix
-        User-item interaction matrix
-    top_k : int, default=20
-        Base K value for top-k filtering (used as base when adaptive=True)
-    self_loop : bool, default=False
-        Whether to include self-loops (diagonal elements)
-    verbose : int, default=-1
-        Verbosity level
-    adaptive : bool, default=True
-        Whether to use adaptive K values based on interaction counts
-    min_k : int, default=10
-        Minimum K value when using adaptive approach
-    max_k : int, default=100
-        Maximum K value when using adaptive approach
-        
-    Returns:
-    --------
-    filtered_similarity_matrix : sparse matrix
-        Filtered cosine similarity matrix
-    """
+def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1):
     
     if verbose > 0:
         print('Computing cosine similarity by top-k...')
@@ -156,13 +87,6 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
     # Convert the sparse matrix to a binary sparse matrix
     sparse_matrix = csr_matrix(matrix)
     sparse_matrix.data = (sparse_matrix.data > 0).astype(int)
-    
-    # Calculate interaction counts for adaptive K if needed
-    if adaptive:
-        interaction_counts = np.array(sparse_matrix.sum(axis=1)).flatten()
-        avg_interaction_count = max(1, np.mean(interaction_counts))  # Avoid division by zero
-        if verbose > 0:
-            print(f'Using adaptive K (base={top_k}, min={min_k}, max={max_k})')
 
     # Compute sparse cosine similarity (output will be sparse)
     similarity_matrix = cosine_similarity(sparse_matrix, dense_output=False)
@@ -182,25 +106,12 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
     filtered_cols = []
     
     if verbose > 0:
-        desc = f'Preparing {br}adaptive cosine{rs} similarity matrix' if adaptive else f'Preparing {br}cosine{rs} similarity matrix | Top-K: {top_k}'
         print('Filtering top-k values...')
     
     pbar = tqdm(range(similarity_matrix.shape[0]), bar_format='{desc}{bar:30} {percentage:3.0f}% | {elapsed}{postfix}', ascii="░❯")
-    pbar.set_description(desc)
+    pbar.set_description(f"Preparing {br} cosine {rs} similarity matrix | Top-K: {top_k}")
     
     for i in pbar:
-        # Determine K value for this user/item
-        if adaptive:
-            # Calculate adaptive K based on square root scaling
-            current_k = int(top_k * np.sqrt(interaction_counts[i]) / np.sqrt(avg_interaction_count))
-            current_k = max(min_k, min(current_k, max_k))
-            
-            # Add extra info to progress bar for debugging
-            if verbose > 1 and i % 1000 == 0:
-                pbar.set_postfix_str(f"User {i}: {interaction_counts[i]} interactions → K={current_k}")
-        else:
-            current_k = top_k
-            
         # Get the non-zero elements in the i-th row
         row = similarity_matrix.getrow(i).tocoo()
         if row.nnz == 0:
@@ -211,8 +122,8 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
         row_indices = row.col
 
         # Sort indices based on similarity values (in descending order) and select top K
-        if row.nnz > current_k:
-            top_k_idx = np.argsort(-row_data)[:current_k]
+        if row.nnz > top_k:
+            top_k_idx = np.argsort(-row_data)[:top_k]
         else:
             top_k_idx = np.argsort(-row_data)
         
@@ -230,47 +141,13 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
     return filtered_similarity_matrix.tocsr()
 
 
-def pearson_sim(matrix, top_k=20, threshold=0.0, self_loop=False, verbose=-1, adaptive=True, min_k=10, max_k=100):
-    """
-    Compute Pearson correlation similarity between users/items and filter to keep top-k similar users/items.
-    
-    Parameters:
-    -----------
-    matrix : sparse matrix
-        User-item interaction matrix
-    top_k : int, default=20
-        Base K value for top-k filtering (used as base when adaptive=True)
-    threshold : float, default=0.0
-        Minimum similarity threshold to consider
-    self_loop : bool, default=False
-        Whether to include self-loops (diagonal elements)
-    verbose : int, default=-1
-        Verbosity level
-    adaptive : bool, default=True
-        Whether to use adaptive K values based on interaction counts
-    min_k : int, default=10
-        Minimum K value when using adaptive approach
-    max_k : int, default=100
-        Maximum K value when using adaptive approach
-        
-    Returns:
-    --------
-    filtered_similarity_matrix : sparse matrix
-        Filtered Pearson similarity matrix
-    """
+def pearson_sim(matrix, top_k=20, threshold = 0.0, self_loop=False, verbose=-1):
        
     if verbose > 0:
         print('Computing Pearson similarity by top-k...')
     
     # Convert the input matrix to a sparse format (CSR)
     sparse_matrix = csr_matrix(matrix)
-    
-    # Calculate interaction counts for adaptive K if needed
-    if adaptive:
-        interaction_counts = np.array((sparse_matrix > 0).sum(axis=1)).flatten()
-        avg_interaction_count = max(1, np.mean(interaction_counts))  # Avoid division by zero
-        if verbose > 0:
-            print(f'Using adaptive K (base={top_k}, min={min_k}, max={max_k})')
     
     # Row-wise mean centering: subtract the mean from non-zero entries
     row_means = np.array(sparse_matrix.mean(axis=1)).flatten()
@@ -291,31 +168,20 @@ def pearson_sim(matrix, top_k=20, threshold=0.0, self_loop=False, verbose=-1, ad
     else:
         similarity_matrix.setdiag(0)
     
+    #full_similarity_matrix = similarity_matrix.copy()  # Keep the full similarity matrix
+    
     # Prepare to filter top K values
     filtered_data = []
     filtered_rows = []
     filtered_cols = []
     
     if verbose > 0:
-        desc = f'Preparing {br}adaptive pearson{rs} similarity matrix' if adaptive else f'Preparing {br}pearson{rs} similarity matrix | Top-K: {top_k}'
         print('Filtering top-k values...')
     
     pbar = tqdm(range(similarity_matrix.shape[0]), bar_format='{desc}{bar:30} {percentage:3.0f}% | {elapsed}{postfix}', ascii="░❯")
-    pbar.set_description(desc)
+    pbar.set_description(f'Preparing {br}pearson{rs} similarity matrix | Top-K: {top_k}')
     
     for i in pbar:
-        # Determine K value for this user/item
-        if adaptive:
-            # Calculate adaptive K based on square root scaling
-            current_k = int(top_k * np.sqrt(interaction_counts[i]) / np.sqrt(avg_interaction_count))
-            current_k = max(min_k, min(current_k, max_k))
-            
-            # Add extra info to progress bar for debugging
-            if verbose > 1 and i % 1000 == 0:
-                pbar.set_postfix_str(f"User {i}: {interaction_counts[i]} interactions → K={current_k}")
-        else:
-            current_k = top_k
-            
         # Get the non-zero elements in the i-th row
         row = similarity_matrix.getrow(i).tocoo()
         if row.nnz == 0:
@@ -331,8 +197,8 @@ def pearson_sim(matrix, top_k=20, threshold=0.0, self_loop=False, verbose=-1, ad
         row_indices = row_indices[valid_idx]
 
         # Sort indices based on similarity values (in descending order) and select top K
-        if row_data.size > current_k:
-            top_k_idx = np.argsort(-row_data)[:current_k]
+        if row_data.size > top_k:
+            top_k_idx = np.argsort(-row_data)[:top_k]
         else:
             top_k_idx = np.argsort(-row_data)
         
@@ -347,4 +213,4 @@ def pearson_sim(matrix, top_k=20, threshold=0.0, self_loop=False, verbose=-1, ad
     del sparse_matrix, similarity_matrix
     del filtered_data, filtered_rows, filtered_cols
     
-    return filtered_similarity_matrix.tocsr()
+    return filtered_similarity_matrix.tocsr() #, full_similarity_matrix
