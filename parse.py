@@ -34,7 +34,6 @@ def parse_args():
     parser.add_argument('--weighted_neg_sampling', type=bool, default=False)
     parser.add_argument('--samples', type=int, default=1)
     parser.add_argument('--load', type=bool, default=False)
-    parser.add_argument('--diff', type=bool, default=False)
     parser.add_argument('--save_res', type=bool, default=True)
     parser.add_argument('--save_pred', type=bool, default=False)
     parser.add_argument('--save_model', type=bool, default=False)
