@@ -1,51 +1,52 @@
 '''
 Created on Sep 1, 2024
-Pytorch Implementation of DySimGCF:  A Similarity-Centric Graph Convolutional Network for Adaptive Collaborative Filtering
+Pytorch Implementation of DySimGCF: A Similarity-Centric Graph Convolutional Network for Adaptive Collaborative Filtering
 '''
 
 from parse import parse_args
 
 args = parse_args()
 
-config = {}
-config['batch_size'] = args.batch_size
-config['lr'] = args.lr
-config['dataset'] = args.dataset
-config['layers'] = args.layers
-config['emb_dim'] = args.emb_dim
-config['model'] = args.model
-config['decay'] = args.decay
-config['epochs'] = args.epochs
-config['top_K'] = args.top_K
-config['verbose'] = args.verbose
-config['epochs_per_eval'] = args.epochs_per_eval
-config['seed'] = args.seed
-config['test_ratio'] = args.test_ratio
-config['u_sim'] = args.u_sim
-config['i_sim'] = args.i_sim
-config['sim'] = args.sim
-config['edge'] = args.edge
-config['i_K'] = args.i_K
-config['u_K'] = args.u_K
-config['eigen_K'] = args.eigen_K
-config['abl_study'] = args.abl_study
-config['self_loop'] = bool(args.self_loop)
-config['shuffle'] = args.shuffle
-config['weighted_neg_sampling'] = args.weighted_neg_sampling
-config['samples'] = args.samples
-config['save_sim_mat'] = args.save_sim_mat
-config['save_res'] = args.save_res
-config['save_pred'] = args.save_pred
-config['save_model'] = args.save_model
-config['margin'] = args.margin
-config['load'] = args.load
-config['diff'] = args.diff
-config['s_temp'] = args.s_temp
-
-# Add these lines to your config setup
-config['K'] = args.K if hasattr(args, 'K') else 10.0  # Default to 10.0 if not provided
-config['solver'] = args.solver if hasattr(args, 'solver') else 'dopri5'
-config['time_split'] = args.time_split if hasattr(args, 'time_split') else 3
-config['learnable_time'] = args.learnable_time if hasattr(args, 'learnable_time') else True
-config['dual_res'] = args.dual_res if hasattr(args, 'dual_res') else False
-config['max_time'] = args.K if hasattr(args, 'K') else 10.0  # Use same value as K
+config = {
+    'batch_size': args.batch_size,
+    'lr': args.lr,
+    'dataset': args.dataset,
+    'layers': args.layers,
+    'emb_dim': args.emb_dim,
+    'model': args.model,
+    'decay': args.decay,
+    'epochs': args.epochs,
+    'top_K': args.top_K,
+    'verbose': args.verbose,
+    'epochs_per_eval': args.epochs_per_eval,
+    'seed': args.seed,
+    'test_ratio': args.test_ratio,
+    'u_sim': args.u_sim,
+    'i_sim': args.i_sim,
+    'sim': args.sim,
+    'edge': args.edge,
+    'i_K': args.i_K,
+    'u_K': args.u_K,
+    'eigen_K': args.eigen_K,
+    'abl_study': args.abl_study,
+    'self_loop': bool(args.self_loop),
+    'shuffle': args.shuffle,
+    'weighted_neg_sampling': args.weighted_neg_sampling,
+    'samples': args.samples,
+    'save_sim_mat': args.save_sim_mat,
+    'save_res': args.save_res,
+    'save_pred': args.save_pred,
+    'save_model': args.save_model,
+    'margin': args.margin,
+    'load': args.load,
+    'diff': args.diff,
+    's_temp': args.s_temp,
+    
+    # Diffusion/ODE parameters
+    'K': getattr(args, 'K', 5.0),  # default is best for ML-100K
+    'solver': getattr(args, 'solver', 'euler'),
+    'time_split': getattr(args, 'time_split', 3),
+    'learnable_time': getattr(args, 'learnable_time', True),
+    'dual_res': getattr(args, 'dual_res', False),
+    'max_time': getattr(args, 'K', 5.0),
+}
