@@ -8,14 +8,20 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 import utils as ut
+import sys
 
 from tqdm import tqdm
 from model import RecSysGNN, get_all_predictions
 from world import config
 from data_prep import get_edge_index, create_uuii_adjmat, create_uuii_adjmat_from_feature_data
-from spectral_transform import construct_laplacian, spectral_transform, compute_spectral_similarities, create_edges_from_similarities
-
 import wandb
+
+# ANSI escape codes for bold and red
+br = "\033[1;31m"
+b = "\033[1m"
+bg = "\033[1;32m"
+bb = "\033[1;34m"
+rs = "\033[0m"
 
 # Start a new wandb run to track this script.
 run = wandb.init(
@@ -32,41 +38,50 @@ run = wandb.init(
     },
 )
 
-# ANSI escape codes for bold and red
-br = "\033[1;31m"
-b = "\033[1m"
-bg = "\033[1;32m"
-bb = "\033[1;34m"
-rs = "\033[0m"
- 
-def compute_bpr_loss_multi_sample(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+# multi neg sample + margin
+def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.1):
+    """
+    Compute BPR loss with a margin parameter to focus on hard negative samples.
     
+    The margin is subtracted from the negative-positive score difference before applying softplus.
+    This means that negative samples need to have a higher score by at least 'margin' to contribute significantly to the loss.
+    """
+
+    margin = config['margin']
+    
+    # Compute regularization loss (unchanged)
     if config['samples'] == 1:
         neg_reg_loss = neg_emb0.norm(2).pow(2)
     else:
-        neg_reg_loss = neg_emb0.norm(2).pow(2).sum() / neg_emb0.shape[1]  # Sum over negatives and average by N
-        
-    # Compute regularization loss
+        neg_reg_loss = neg_emb0.norm(2, dim=2).pow(2).sum() / neg_emb0.shape[1]
+    
     reg_loss = (1 / 2) * (
-        user_emb0.norm(2).pow(2) + 
-        pos_emb0.norm(2).pow(2)  +
+        user_emb0.norm(2).pow(2) +
+        pos_emb0.norm(2).pow(2) +
         neg_reg_loss
     ) / float(len(users))
     
-    # Compute positive and negative scores
+    # Compute scores (unchanged)
     pos_scores = torch.mul(users_emb, pos_emb).sum(dim=1)
     
     if config['samples'] == 1:
+        # Single negative case
         neg_scores = torch.mul(users_emb, neg_emb).sum(dim=1)
-        bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores))  # Using softplus for stability
-    else:
-        # Neg scores for each user and N negative items: [batch_size, N]
-        neg_scores = torch.mul(users_emb.unsqueeze(1), neg_emb).sum(dim=2)
-        bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores.unsqueeze(1)))  # Using softplus for stability
         
-    return bpr_loss, reg_loss
+        # Add margin: only apply significant loss when neg_score > pos_score + margin
+        bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores - margin))
+    else:
+        # Multiple negatives case
+        users_emb_expanded = users_emb.unsqueeze(1)
+        neg_scores = torch.sum(users_emb_expanded * neg_emb, dim=2)
+        pos_scores_expanded = pos_scores.unsqueeze(1)
+        
+        # Add margin: only apply significant loss when neg_score > pos_score + margin
+        bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores_expanded - margin))
+    
+    return bpr_loss, reg_loss, None
 
-def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+def compute_bpr_loss_orig(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
     
     # Compute regularization loss
     reg_loss = (1 / 2) * (
@@ -82,37 +97,6 @@ def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, ne
     bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores))  # Using softplus for stability
         
     return bpr_loss, reg_loss, None
-
-# Compute BPR loss and Contrastive Loss
-def compute_bpr_loss_contrast(users, users_emb, pos_emb, neg_emb, 
-                                 user_emb0, pos_emb0, neg_emb0, 
-                                 temperature=0.1, lambda_contrastive=0.05):
-    
-    # Compute BPR loss (ranking)
-    reg_loss = (1 / 2) * (
-        user_emb0.norm(2).pow(2) + 
-        pos_emb0.norm(2).pow(2)  +
-        neg_emb0.norm(2).pow(2)
-    ) / float(len(users))
-    
-    pos_scores = torch.mul(users_emb, pos_emb).sum(dim=1)  # Positive interactions
-    neg_scores = torch.mul(users_emb, neg_emb).sum(dim=1)  # Negative interactions
-    
-    bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores))  # BPR loss
-    
-    # Compute Contrastive Loss (InfoNCE)
-    pos_sim = F.cosine_similarity(users_emb, pos_emb) / temperature  # Positive pair similarity
-    neg_sim = F.cosine_similarity(users_emb, neg_emb) / temperature  # Negative pair similarity
-    
-    # Contrastive loss using InfoNCE (pull positives, push negatives)
-    contrastive_loss = -torch.mean(torch.log(
-        torch.exp(pos_sim) / (torch.exp(pos_sim) + torch.exp(neg_sim))
-    ))
-    
-    # Final loss = BPR Loss + Contrastive Loss (weighted by λ)
-    #total_loss = bpr_loss + lambda_contrastive * contrastive_loss
-    
-    return bpr_loss, reg_loss, contrastive_loss
 
 
 def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, adj_list, device, g_seed):
@@ -153,12 +137,14 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
 
         if config['samples'] == 1:
             S = ut.neg_uniform_sample(train_df, adj_list, n_users)
+            users = torch.Tensor(S[:, 0]).long().to(device)
+            pos_items = torch.Tensor(S[:, 1]).long().to(device)
+            neg_items = torch.Tensor(S[:, 2]).long().to(device)
         else:
-            S = ut.multiple_neg_uniform_sample(train_df, adj_list, n_users)
-         
-        users = torch.Tensor(S[:, 0]).long().to(device)
-        pos_items = torch.Tensor(S[:, 1]).long().to(device)
-        neg_items = torch.Tensor(S[:, 2]).long().to(device)
+            users, pos_items, neg_items_list = ut.multiple_neg_uniform_sample(train_df, adj_list, n_users)
+            users = torch.Tensor(users).long().to(device)
+            pos_items = torch.Tensor(pos_items).long().to(device)
+            neg_items = torch.Tensor(neg_items_list).long().to(device)
                 
         if config['shuffle']: 
             users, pos_items, neg_items = ut.shuffle(users, pos_items, neg_items)
@@ -277,50 +263,6 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
         edge_index = knn_edge_index.to(device)
         edge_attrs = torch.tensor(knn_edge_attrs).to(device)
         
-    if config['edge'] == 'spectral': # edge from a spectral graph
-        # Execute spectral domain processing
-        laplacian, adjacency = construct_laplacian(_train_df, N_USERS, N_ITEMS)
-        
-        # Get parameters from config
-        k_eigenvectors = config['eigen_K']
-        k_users = config['u_K']
-        k_items = config['i_K']
-        similarity_type = config.get('similarity_type', 'cosine')
-        
-        eigenvalues, eigenvectors = spectral_transform(laplacian, k=k_eigenvectors)
-        
-        # Apply anisotropic diffusion if enabled (from S-Diff approach)
-        if config.get('use_anisotropic', False):
-            print(f"{bg}Applying anisotropic diffusion in spectral domain{rs}")
-            # Prepare eigenvalues for anisotropic diffusion
-            # Lower eigenvalues correspond to lower frequencies that we want to preserve
-            alpha_min = config.get('alpha_min', 0.1)  # Minimum preservation factor
-            sigma_max = config.get('sigma_max', 0.5)  # Maximum noise level
-            
-            # Use scheduled noise based on eigenvalues (following S-Diff approach)
-            alpha_t = (1 - alpha_min) * np.exp(-eigenvalues) + alpha_min
-            sigma_t = np.minimum(np.sqrt(1 - alpha_t**2), sigma_max)
-            
-            # Apply anisotropic diffusion in spectral domain
-            noise = np.random.normal(0, 1, eigenvectors.shape)
-            diffused_eigenvectors = alpha_t * eigenvectors + sigma_t[:, np.newaxis] * noise
-            eigenvectors = diffused_eigenvectors
-        
-        user_similarity, item_similarity = compute_spectral_similarities(
-            eigenvectors, N_USERS, N_ITEMS, similarity_type=similarity_type
-        )
-        
-        # Create edges from computed similarities
-        spectral_edge_index, spectral_edge_attrs = create_edges_from_similarities(
-            user_similarity, item_similarity, k_users, k_items, N_USERS
-        )
-        
-        edge_index = torch.tensor(spectral_edge_index).to(device).long()
-        edge_attrs = torch.tensor(spectral_edge_attrs).to(device).float()
-        
-        print(f"{bg}Spectral processing complete. Created {len(edge_attrs)} edges{rs}")
-            
-    
     cf_model = RecSysGNN(model=config['model'], 
                          emb_dim=config['emb_dim'],  
                          n_layers=config['layers'], 
@@ -346,7 +288,6 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
                                      device,
                                      g_seed)
    
-
     # Assume 'model' is your PyTorch model
     if config['save_model']:
         torch.save(cf_model.state_dict(), model_file_path)

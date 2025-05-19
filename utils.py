@@ -286,7 +286,7 @@ def calculate_neg_weights(train_df, adj_list, items_sim_matrix):
     return train_df_with_neg_list
 
 
-def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
+def multiple_neg_uniform_sample_old(train_df, full_adj_list, n_usr):
     interactions = train_df.to_numpy()
     users = interactions[:, 0].astype(int)
     pos_items = interactions[:, 1].astype(int)
@@ -305,6 +305,24 @@ def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
     S = np.column_stack((users, pos_items, neg_items_list))
     
     return S
+
+def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
+    interactions = train_df.to_numpy()
+    users = interactions[:, 0].astype(int)
+    pos_items = interactions[:, 1].astype(int)
+    
+    # For each user, generate N negative samples
+    neg_items_list = np.array([
+        np.random.choice(full_adj_list[u]['neg_items'], size=config["samples"], replace=True)
+        for u in users
+    ])
+    
+    # Adjust positive and negative item indices by adding n_usr
+    pos_items = pos_items + n_usr
+    neg_items_list = neg_items_list + n_usr
+    
+    # Return components separately
+    return users, pos_items, neg_items_list
                  
 def shuffle(*arrays, **kwargs):
 

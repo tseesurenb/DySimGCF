@@ -41,12 +41,5 @@ config = {
     'load': args.load,
     'diff': args.diff,
     's_temp': args.s_temp,
-    
-    # Diffusion/ODE parameters
-    'K': getattr(args, 'K', 5.0),  # default is best for ML-100K
-    'solver': getattr(args, 'solver', 'euler'),
-    'time_split': getattr(args, 'time_split', 3),
-    'learnable_time': getattr(args, 'learnable_time', True),
-    'dual_res': getattr(args, 'dual_res', False),
-    'max_time': getattr(args, 'K', 5.0),
+    'l_temp': args.l_temp
 }
