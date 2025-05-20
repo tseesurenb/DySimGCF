@@ -42,7 +42,9 @@ run = wandb.init(
 import torch
 import torch.nn.functional as F
 
-# exactly the same
+import torch
+import torch.nn.functional as F
+
 def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
     margin = config['margin']
     negative_weight = config['l_weight']
@@ -66,7 +68,10 @@ def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, ne
     # Combine positive and negative similarities to match y_pred format in CosineContrastiveLoss
     y_pred = torch.cat([pos_similarity.unsqueeze(1), neg_similarity], dim=1)
     
-    # Now follow the exact same structure as CosineContrastiveLoss.forward()
+    # Create dummy y_true tensor (not actually used in the loss calculation)
+    y_true = torch.zeros_like(y_pred)
+    
+    # Follow the exact same structure as CosineContrastiveLoss.forward()
     pos_logits = y_pred[:, 0]
     pos_loss = torch.relu(1 - pos_logits)
     neg_logits = y_pred[:, 1:]
@@ -79,16 +84,18 @@ def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, ne
     
     ccl_loss = loss.mean()
     
-    # Regularization (unchanged)
+    # Regularization
     user_reg_loss_sum = user_emb0.norm(2).pow(2)
     pos_reg_loss_sum = pos_emb0.norm(2).pow(2)
     
     if neg_emb0.dim() == 2:  # Single negative
         neg_reg_loss_component = neg_emb0.norm(2).pow(2)
     else:  # Multiple negatives
-        neg_reg_loss_component = neg_emb0.norm(2, dim=2).pow(2).sum()
+        sum_sq_norms = neg_emb0.norm(2, dim=2).pow(2).sum()
         if negative_weight:  # Match the logic for loss calculation
-            neg_reg_loss_component = neg_reg_loss_component / neg_emb0.size(1)
+            neg_reg_loss_component = sum_sq_norms / neg_emb0.size(1)
+        else:
+            neg_reg_loss_component = sum_sq_norms
     
     reg_loss = (1 / 2) * (user_reg_loss_sum + pos_reg_loss_sum + neg_reg_loss_component) / float(len(users))
     
