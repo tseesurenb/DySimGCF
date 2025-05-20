@@ -38,8 +38,171 @@ run = wandb.init(
     },
 )
 
+
+import torch
+import torch.nn.functional as F
+
+def compute_bpr_loss(users, users_emb, pos_emb, neg_emb,
+                             user_emb0, pos_emb0, neg_emb0):
+  
+    ccl_margin = config['margin']
+    ccl_weight_w = config['l_weight']
+    # Assuming 'num_negative_samples' in config is equivalent to your BPR's 'samples'
+    num_negative_samples = config['samples']
+    batch_size = users_emb.shape[0]
+
+    # --- Calculate CCL Loss component ---
+
+    # L2 Normalize embeddings for cosine similarity calculation [cite: 99]
+    users_emb_norm = F.normalize(users_emb, p=2, dim=1)
+    pos_emb_norm = F.normalize(pos_emb, p=2, dim=1)
+
+    # Positive pair cosine similarity (y_ui_hat) [cite: 93, 130]
+    # users_emb_norm: [batch_size, emb_dim]
+    # pos_emb_norm:   [batch_size, emb_dim]
+    pos_similarity = F.cosine_similarity(users_emb_norm, pos_emb_norm, dim=1)  # Output: [batch_size]
+
+    # Positive sample loss component: (1 - y_ui_hat) [cite: 93]
+    positive_loss_term = 1 - pos_similarity  # Output: [batch_size]
+
+    # Negative sample loss component: (w / |N|) * sum_{j in N} max(0, y_uj_hat - m) [cite: 93]
+    if num_negative_samples == 1:
+        # neg_emb is [batch_size, emb_dim]
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=1)
+        # neg_similarity (y_uj_hat): [batch_size]
+        neg_similarity = F.cosine_similarity(users_emb_norm, neg_emb_norm, dim=1)
+
+        # max(0, y_uj_hat - m) [cite: 93]
+        individual_negative_terms = F.relu(neg_similarity - ccl_margin)  # Output: [batch_size]
+
+        # For |N|=1, sum_j max(0, y_uj_hat - m) / |N| is just max(0, y_uj_hat - m)
+        avg_sum_negative_terms = individual_negative_terms
+
+    else:  # num_negative_samples > 1
+        # neg_emb is [batch_size, num_negative_samples, emb_dim]
+        # Normalize along the embedding dimension (dim=2)
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=2)
+
+        # Expand users_emb_norm for broadcasting: [batch_size, 1, emb_dim]
+        users_emb_norm_expanded = users_emb_norm.unsqueeze(1)
+
+        # neg_similarity (y_uj_hat for j in N): [batch_size, num_negative_samples]
+        neg_similarity = F.cosine_similarity(users_emb_norm_expanded, neg_emb_norm, dim=2)
+
+        # max(0, y_uj_hat - m) for each negative sample [cite: 93]
+        # Output: [batch_size, num_negative_samples]
+        individual_negative_terms = F.relu(neg_similarity - ccl_margin)
+
+        # Sum over all negative samples for each user: sum_{j in N} max(0, y_uj_hat - m)
+        sum_of_negative_terms = torch.sum(individual_negative_terms, dim=1)  # Output: [batch_size]
+
+        # Average this sum by the number of negative samples |N|
+        avg_sum_negative_terms = sum_of_negative_terms / num_negative_samples
+
+    # Apply weight w to the averaged sum of negative terms [cite: 93, 95]
+    # Output: [batch_size]
+    weighted_avg_negative_loss_term = ccl_weight_w * avg_sum_negative_terms
+
+    # Total CCL loss for each sample in the batch
+    # L_CCL(u,i) = (1 - y_ui_hat) + weighted_avg_negative_loss_term [cite: 93]
+    ccl_loss_per_sample = positive_loss_term + weighted_avg_negative_loss_term  # Output: [batch_size]
+
+    # Mean CCL loss over the batch
+    ccl_loss = torch.mean(ccl_loss_per_sample)
+
+    # --- Regularization Loss (adopted from your BPR snippet's structure) ---
+    # This part calculates L2 regularization on the raw embeddings (user_emb0, pos_emb0, neg_emb0).
+    # The SimpleX paper also mentions using L2 regularization[cite: 167].
+
+    # Sum of squared L2 norms for user embeddings in the batch
+    user_reg_loss_sum = user_emb0.norm(2).pow(2)
+    # Sum of squared L2 norms for positive item embeddings in the batch
+    pos_reg_loss_sum = pos_emb0.norm(2).pow(2)
+
+    if num_negative_samples == 1:
+        # neg_emb0 is [batch_size, emb_dim]
+        # Sum of squared L2 norms for the single negative item embeddings in the batch
+        neg_reg_loss_component = neg_emb0.norm(2).pow(2)
+    else:  # num_negative_samples > 1
+        # neg_emb0 is [batch_size, num_negative_samples, emb_dim]
+        # Sum of squared L2 norms for all negative item embeddings across the batch
+        sum_sq_norms_all_neg_samples = neg_emb0.norm(2, dim=2).pow(2).sum()
+        # Average this sum by the number of negative samples per positive instance
+        neg_reg_loss_component = sum_sq_norms_all_neg_samples / num_negative_samples
+
+    # Total regularization term, with a 0.5 factor, averaged by batch size
+    # This matches the structure of your BPR's regularization
+    reg_loss = (1 / 2) * (user_reg_loss_sum + pos_reg_loss_sum + neg_reg_loss_component) / float(len(users))
+
+    return ccl_loss, reg_loss, None
+
+def compute_bpr_loss_claude(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.4, weight=300):
+    """
+    Compute Cosine Contrastive Loss (CCL) as used in SimpleX paper.
+    
+    Args:
+        users: User indices
+        users_emb, pos_emb, neg_emb: Embeddings for calculation
+        user_emb0, pos_emb0, neg_emb0: Original embeddings for regularization
+        margin: Margin parameter (typically 0.4-0.9) to filter uninformative negatives
+        weight: Weight parameter to balance positive and negative sample loss
+    """
+    margin = config['margin']
+    weight = config['l_weight']
+
+    # Compute regularization loss (unchanged)
+    if neg_emb0.dim() == 2:  # Single negative case
+        neg_reg_loss = neg_emb0.norm(2).pow(2)
+    else:  # Multiple negatives case
+        neg_reg_loss = neg_emb0.norm(2, dim=2).pow(2).sum() / neg_emb0.shape[1]
+    
+    reg_loss = (1 / 2) * (
+        user_emb0.norm(2).pow(2) +
+        pos_emb0.norm(2).pow(2) +
+        neg_reg_loss
+    ) / float(len(users))
+    
+    # L2 normalize embeddings for cosine similarity
+    users_emb_normalized = F.normalize(users_emb, p=2, dim=1)
+    pos_emb_normalized = F.normalize(pos_emb, p=2, dim=1)
+    
+    # Compute positive sample cosine similarity
+    pos_cosine = torch.sum(users_emb_normalized * pos_emb_normalized, dim=1)
+    
+    # Positive loss: maximize cosine similarity (1 - cos)
+    pos_loss = 1 - pos_cosine
+    
+    if neg_emb0.dim() == 2:  # Single negative case
+        neg_emb_normalized = F.normalize(neg_emb, p=2, dim=1)
+        neg_cosine = torch.sum(users_emb_normalized * neg_emb_normalized, dim=1)
+        
+        # Negative loss: minimize cosine similarity with margin
+        # max(0, cos - margin) will be 0 for uninformative negatives
+        neg_loss = torch.clamp(neg_cosine - margin, min=0)
+        
+    else:  # Multiple negatives case
+        users_emb_expanded = users_emb_normalized.unsqueeze(1)
+        neg_emb_normalized = F.normalize(neg_emb, p=2, dim=2)
+        neg_cosine = torch.sum(users_emb_expanded * neg_emb_normalized, dim=2)
+        
+        # Negative loss: minimize cosine similarity with margin
+        neg_loss = torch.clamp(neg_cosine - margin, min=0).mean(dim=1)
+    
+    # Combined loss with weight parameter to balance positive and negative loss
+    if neg_emb0.dim() == 2:  # Single negative case
+        ccl_loss = torch.mean(pos_loss + weight * neg_loss)
+    else:  # Multiple negatives case
+        # Weight the negative loss term by batch size and number of negative samples
+        ccl_loss = torch.mean(pos_loss + weight/neg_emb.shape[1] * neg_loss)
+    
+    # Make sure contrast_loss is a tensor, not a float
+    contrast_loss = pos_cosine.mean()  # This is already a tensor
+    
+    return ccl_loss, reg_loss, contrast_loss  # All tensors now
+
+
 # multi neg sample + margin
-def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.1):
+def compute_bpr_loss_v1(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.1):
     """
     Compute BPR loss with a margin parameter to focus on hard negative samples.
     
@@ -171,6 +334,9 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
         for (b_i, (b_users, b_pos, b_neg)) in enumerate(ut.minibatch(users, pos_items, neg_items, batch_size=b_size)):
                                      
             u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
+
+            u_emb, pos_emb, neg_emb, u_emb0, pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
+
             bpr_loss, reg_loss, contrast_loss = compute_bpr_loss(b_users, u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0)
             
             reg_loss = decay * reg_loss

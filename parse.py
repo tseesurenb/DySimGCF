@@ -35,18 +35,12 @@ def parse_args():
     parser.add_argument('--weighted_neg_sampling', type=bool, default=False)
     parser.add_argument('--samples', type=int, default=1)
     parser.add_argument('--load', type=bool, default=False)
+    parser.add_argument('--diff', type=bool, default=False)
     parser.add_argument('--save_res', action='store_true')
     parser.add_argument('--save_pred', action='store_true')
     parser.add_argument('--save_model', action='store_true')
     parser.add_argument('--save_sim_mat', action='store_true')
     parser.add_argument('--margin', type=float, default=0.1, help="the margin in BPR loss")
-
-     # Diffusion/ODE settings
-    parser.add_argument('--diff', action='store_true', help='Use diffusion (ODE-based) modeling')
-    parser.add_argument('--K', type=float, default=10.0, help="Maximum integration time for ODE")
-    parser.add_argument('--solver', type=str, default='dopri5', help="ODE solver [euler, rk4, dopri5]")
-    parser.add_argument('--time_split', type=int, default=3, help="Number of time splits")
-    parser.add_argument('--learnable_time', action='store_true', help="Use learnable time embeddings")
-    parser.add_argument('--dual_res', action='store_true', help="Enable dual residual connections")
+    parser.add_argument('--l_weight', type=int, default=150, help="weigt for loss")
 
     return parser.parse_args()

@@ -41,5 +41,6 @@ config = {
     'load': args.load,
     'diff': args.diff,
     's_temp': args.s_temp,
-    'l_temp': args.l_temp
+    'l_temp': args.l_temp,
+    'l_weight': args.l_weight
 }
