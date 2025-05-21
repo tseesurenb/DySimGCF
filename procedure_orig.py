@@ -45,26 +45,7 @@ import torch.nn.functional as F
 import torch
 import torch.nn.functional as F
 
-
-def compute_loss(epoch, users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
-    # if epoch <= 50:
-    #     ccl_loss, reg_loss, _ = compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-    #     return ccl_loss, reg_loss, None
-    # else:
-    #     bpr_loss, reg_loss, _ = compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-    #     return bpr_loss, reg_loss, None
-
-    if config['loss_f'] == 'ccl':
-        ccl_loss, reg_loss, _ = compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-        return ccl_loss, reg_loss, None
-    elif config['loss_f'] == 'bpr':
-        bpr_loss, reg_loss, _ = compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-        return bpr_loss, reg_loss, None
-    else:
-        print("Does not support the loss function!!!")
-
-
-def compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
     margin = config['margin']
     negative_weight = config['l_weight']
     
@@ -120,9 +101,113 @@ def compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, ne
     
     return ccl_loss, reg_loss, None
 
+# similar but not exactly same
+def compute_bpr_loss_2(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+    ccl_margin = config['margin']
+    ccl_weight_w = config['l_weight']
+    num_negative_samples = config['samples']
+    
+    # Normalize embeddings
+    users_emb_norm = F.normalize(users_emb, p=2, dim=1)
+    pos_emb_norm = F.normalize(pos_emb, p=2, dim=1)
+    
+    # Positive pair similarity
+    pos_similarity = F.cosine_similarity(users_emb_norm, pos_emb_norm, dim=1)
+    
+    # Directly use torch.relu for positive loss (matches original class)
+    pos_loss = torch.relu(1 - pos_similarity)
+    
+    # Handle negative samples (similar to original class structure)
+    if num_negative_samples == 1:
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=1)
+        neg_similarity = F.cosine_similarity(users_emb_norm, neg_emb_norm, dim=1)
+        neg_loss = torch.relu(neg_similarity - ccl_margin)
+        
+        # Follow the original class logic
+        if ccl_weight_w:
+            ccl_loss_per_sample = pos_loss + neg_loss * ccl_weight_w
+        else:
+            ccl_loss_per_sample = pos_loss + neg_loss
+            
+    else:  # Multiple negative samples
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=2)
+        users_emb_norm_expanded = users_emb_norm.unsqueeze(1)
+        neg_similarity = F.cosine_similarity(users_emb_norm_expanded, neg_emb_norm, dim=2)
+        neg_loss = torch.relu(neg_similarity - ccl_margin)
+        
+        # Follow the original class logic
+        if ccl_weight_w:
+            ccl_loss_per_sample = pos_loss + neg_loss.mean(dim=1) * ccl_weight_w
+        else:
+            ccl_loss_per_sample = pos_loss + neg_loss.sum(dim=1)
+    
+    # Mean over batch
+    ccl_loss = ccl_loss_per_sample.mean()
+    
+    # Regularization (unchanged)
+    user_reg_loss_sum = user_emb0.norm(2).pow(2)
+    pos_reg_loss_sum = pos_emb0.norm(2).pow(2)
+    
+    if num_negative_samples == 1:
+        neg_reg_loss_component = neg_emb0.norm(2).pow(2)
+    else:
+        sum_sq_norms_all_neg_samples = neg_emb0.norm(2, dim=2).pow(2).sum()
+        neg_reg_loss_component = sum_sq_norms_all_neg_samples / num_negative_samples
+
+    reg_loss = (1 / 2) * (user_reg_loss_sum + pos_reg_loss_sum + neg_reg_loss_component) / float(len(users))
+
+    return ccl_loss, reg_loss, None
+
+def compute_bpr_loss_gemini(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
+    ccl_margin = config['margin']
+    ccl_weight_w = config['l_weight']
+    num_negative_samples = config['samples']
+    batch_size = users_emb.shape[0]
+
+    # Normalize embeddings
+    users_emb_norm = F.normalize(users_emb, p=2, dim=1)
+    pos_emb_norm = F.normalize(pos_emb, p=2, dim=1)
+    
+    # Positive pair similarity
+    pos_similarity = F.cosine_similarity(users_emb_norm, pos_emb_norm, dim=1)
+    positive_loss_term = 1 - pos_similarity
+
+    # Handle negative samples
+    if num_negative_samples == 1:
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=1)
+        neg_similarity = F.cosine_similarity(users_emb_norm, neg_emb_norm, dim=1)
+        individual_negative_terms = F.relu(neg_similarity - ccl_margin)
+        avg_sum_negative_terms = individual_negative_terms
+    else:
+        neg_emb_norm = F.normalize(neg_emb, p=2, dim=2)
+        users_emb_norm_expanded = users_emb_norm.unsqueeze(1)
+        neg_similarity = F.cosine_similarity(users_emb_norm_expanded, neg_emb_norm, dim=2)
+        individual_negative_terms = F.relu(neg_similarity - ccl_margin)
+        sum_of_negative_terms = torch.sum(individual_negative_terms, dim=1)
+        avg_sum_negative_terms = sum_of_negative_terms / num_negative_samples
+
+    # Weight and combine loss terms
+    weighted_avg_negative_loss_term = ccl_weight_w * avg_sum_negative_terms
+    ccl_loss_per_sample = positive_loss_term + weighted_avg_negative_loss_term
+    ccl_loss = torch.mean(ccl_loss_per_sample)
+
+    # Regularization
+    user_reg_loss_sum = user_emb0.norm(2).pow(2)
+    pos_reg_loss_sum = pos_emb0.norm(2).pow(2)
+    
+    if num_negative_samples == 1:
+        neg_reg_loss_component = neg_emb0.norm(2).pow(2)
+    else:
+        sum_sq_norms_all_neg_samples = neg_emb0.norm(2, dim=2).pow(2).sum()
+        neg_reg_loss_component = sum_sq_norms_all_neg_samples / num_negative_samples
+
+    reg_loss = (1 / 2) * (user_reg_loss_sum + pos_reg_loss_sum + neg_reg_loss_component) / float(len(users))
+
+    return ccl_loss, reg_loss, None
+
 
 # multi neg sample + margin
-def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.1):
+def compute_bpr_loss_v1(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0, margin=0.1):
     """
     Compute BPR loss with a margin parameter to focus on hard negative samples.
     
@@ -182,7 +267,7 @@ def compute_bpr_loss_orig(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb
     return bpr_loss, reg_loss, None
 
 
-def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, adj_list, all_epoch_data, device, g_seed):
+def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, adj_list, device, g_seed):
    
     epochs = config['epochs']
     b_size = config['batch_size']
@@ -216,30 +301,21 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
         total_losses, bpr_losses, reg_losses, contrast_losses  = [], [], [], []
         
         # Shuffle the DataFrame
-        # train_df = train_df.sample(frac=1).reset_index(drop=True)
+        train_df = train_df.sample(frac=1).reset_index(drop=True)
 
-        # if config['samples'] == 1:
-        #     S = ut.neg_uniform_sample(train_df, adj_list, n_users)
-        #     users = torch.Tensor(S[:, 0]).long().to(device)
-        #     pos_items = torch.Tensor(S[:, 1]).long().to(device)
-        #     neg_items = torch.Tensor(S[:, 2]).long().to(device)
-        # else:
-        #     users, pos_items, neg_items_list = ut.multiple_neg_uniform_sample(train_df, adj_list, n_users)
-        #     users = torch.Tensor(users).long().to(device)
-        #     pos_items = torch.Tensor(pos_items).long().to(device)
-        #     neg_items = torch.Tensor(neg_items_list).long().to(device)
+        if config['samples'] == 1:
+            S = ut.neg_uniform_sample(train_df, adj_list, n_users)
+            users = torch.Tensor(S[:, 0]).long().to(device)
+            pos_items = torch.Tensor(S[:, 1]).long().to(device)
+            neg_items = torch.Tensor(S[:, 2]).long().to(device)
+        else:
+            users, pos_items, neg_items_list = ut.multiple_neg_uniform_sample(train_df, adj_list, n_users)
+            users = torch.Tensor(users).long().to(device)
+            pos_items = torch.Tensor(pos_items).long().to(device)
+            neg_items = torch.Tensor(neg_items_list).long().to(device)
                 
-        # if config['shuffle']: 
-        #     users, pos_items, neg_items = ut.shuffle(users, pos_items, neg_items)
-
-        # Get precomputed data for this epoch
-        #print(f"epoch: {epoch}, all data: {all_epoch_data[epoch]}")
-        users, pos_items, neg_items_list = all_epoch_data[epoch]
-
-        # Convert to tensors
-        users = torch.tensor(users, dtype=torch.long).to(device)
-        pos_items = torch.tensor(pos_items, dtype=torch.long).to(device)
-        neg_items = torch.tensor(neg_items_list, dtype=torch.long).to(device)
+        if config['shuffle']: 
+            users, pos_items, neg_items = ut.shuffle(users, pos_items, neg_items)
         
         n_batches = len(users) // b_size + 1
         
@@ -266,7 +342,7 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
 
             u_emb, pos_emb, neg_emb, u_emb0, pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
 
-            bpr_loss, reg_loss, contrast_loss = compute_loss(epoch, b_users, u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0)
+            bpr_loss, reg_loss, contrast_loss = compute_bpr_loss(b_users, u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0)
             
             reg_loss = decay * reg_loss
             
@@ -326,14 +402,7 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
         print(f" {br}Testset{rs} | #users: {_test_df['user_id'].nunique()}, #items: {_test_df['item_id'].nunique()}, #interactions: {len(_test_df)}")
       
     adj_list = ut.make_adj_list(_train_df) # adj_list is a user dictionary with a list of positive items (pos_items) and negative items (neg_items)
-    
-    # Precompute all negative samples for all epochs
-    all_epoch_data = ut.precompute_all_epochs_samples(
-        _train_df, adj_list, N_USERS, config['epochs']
-    )
-
-    #print(f"Pre-computing data for all epochs done: {all_epoch_data.shape}") 
-
+     
     if config['edge'] == 'bi': # edge from a bipartite graph
         
         u_t = torch.LongTensor(_train_df.user_id)
@@ -387,7 +456,6 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
                                      edge_index, 
                                      edge_attrs,
                                      adj_list,
-                                     all_epoch_data,
                                      device,
                                      g_seed)
    

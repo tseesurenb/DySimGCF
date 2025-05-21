@@ -137,6 +137,91 @@ class DySimGCF(MessagePassing):
             return torch.zeros_like(x_j)
         return norm.view(-1, 1) * x_j
 
+# trying to add sharpening part to DySimGCF
+class DySimGCF_sharp(MessagePassing):
+    def __init__(self, self_loop=False, device='cpu', dropout_rate=0.5, 
+                 enable_sharpening=True, sharpening_strength=1.0, **kwargs):
+        super().__init__(aggr='add')
+        self.graph_norms = None
+        self.add_self_loops = self_loop
+        self.last_edge_key = None
+        self.dropout_rate = dropout_rate
+        
+        # Sharpening parameters
+        self.enable_sharpening = enable_sharpening
+        self.sharpening_strength = sharpening_strength
+    
+    def forward(self, x, edge_index, edge_attrs):
+        # Step 1: Blurring process (your original implementation)
+        edge_index_prop, edge_attrs_prop = edge_index, edge_attrs
+        norm_to_propagate = None
+        
+        if self.training:
+            if self.dropout_rate > 0 and edge_index.numel() > 0:
+                edge_mask = torch.rand(edge_index.shape[1], device=edge_index.device) > self.dropout_rate
+                edge_index_prop = edge_index[:, edge_mask]
+                edge_attrs_prop = edge_attrs[edge_mask]
+                
+            if edge_index_prop.numel() > 0:
+                from_, to_ = edge_index_prop
+                temperature = config['s_temp']
+                num_nodes = x.size(self.node_dim)
+                incoming_norm = softmax(edge_attrs_prop / temperature, to_, num_nodes=num_nodes)
+                outgoing_norm = softmax(edge_attrs_prop / temperature, from_, num_nodes=num_nodes)
+                
+                if config['abl_study'] == -1:
+                    norm_to_propagate = outgoing_norm
+                elif config['abl_study'] == 1:
+                    norm_to_propagate = incoming_norm
+                else:
+                    norm_to_propagate = torch.sqrt(incoming_norm * outgoing_norm)
+        else:
+            current_edge_key = f"{edge_index.data_ptr()}_{edge_attrs.data_ptr()}"
+            if self.graph_norms is None or current_edge_key != self.last_edge_key:
+                if edge_index_prop.numel() > 0:
+                    from_, to_ = edge_index_prop
+                    temperature = config['s_temp']
+                    num_nodes = x.size(self.node_dim)
+                    incoming_norm = softmax(edge_attrs_prop / temperature, to_, num_nodes=num_nodes)
+                    outgoing_norm = softmax(edge_attrs_prop / temperature, from_, num_nodes=num_nodes)
+                    
+                    if config['abl_study'] == -1:
+                        self.graph_norms = outgoing_norm
+                    elif config['abl_study'] == 1:
+                        self.graph_norms = incoming_norm
+                    else:
+                        self.graph_norms = torch.sqrt(incoming_norm * outgoing_norm)
+                    self.last_edge_key = current_edge_key
+                else:
+                    self.graph_norms = None
+                    self.last_edge_key = current_edge_key
+            norm_to_propagate = self.graph_norms
+        
+        # Propagate (blurring process)
+        blurred_output = self.propagate(edge_index_prop, x=x, norm=norm_to_propagate)
+        
+        # Step 2: Sharpening process
+        if self.enable_sharpening:
+            # Implement sharpening as negative propagation to emphasize differences
+            # This is based on s(S(t)) = -S(t)P̃ from the paper
+            sharp_norm_to_propagate = None
+            
+            if norm_to_propagate is not None:
+                # For sharpening, we use negative values to emphasize differences
+                sharp_norm_to_propagate = -self.sharpening_strength * norm_to_propagate
+                
+            # Apply sharpening process (negatively weighted propagation)
+            sharpening_output = self.propagate(edge_index_prop, x=blurred_output, norm=sharp_norm_to_propagate)
+            
+            # Combine blurred and sharpened outputs
+            return blurred_output + sharpening_output
+        else:
+            return blurred_output
+    
+    def message(self, x_j, norm):
+        if norm is None:
+            return torch.zeros_like(x_j)
+        return norm.view(-1, 1) * x_j
 
 class RecSysGNN(nn.Module):
   def __init__(

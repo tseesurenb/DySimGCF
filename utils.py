@@ -306,6 +306,8 @@ def multiple_neg_uniform_sample_old(train_df, full_adj_list, n_usr):
     
     return S
 
+
+
 def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
     interactions = train_df.to_numpy()
     users = interactions[:, 0].astype(int)
@@ -323,6 +325,112 @@ def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
     
     # Return components separately
     return users, pos_items, neg_items_list
+
+
+import numpy as np
+from tqdm import tqdm
+import random
+
+def precompute_all_epochs_samples_old(train_df, full_adj_list, n_usr, num_epochs, config):
+    print(f"Precomputing samples for {num_epochs} epochs (fast index-based)...")
+
+    num_samples = config["samples"]
+    all_epoch_data = []
+
+    # Prepare neg items for each user once
+    neg_items_list_per_user = {}
+    for u in full_adj_list:
+        negs = list(full_adj_list[u]['neg_items'])
+        if len(negs) == 0:
+            negs = [0]  # fallback
+        neg_items_list_per_user[u] = negs
+
+    for epoch in tqdm(range(num_epochs), desc="Generating epoch samples"):
+        shuffled_df = train_df.sample(frac=1).reset_index(drop=True)
+        interactions = shuffled_df.to_numpy()
+        users = interactions[:, 0].astype(int)
+        pos_items = interactions[:, 1].astype(int)
+
+        neg_items_list = np.zeros((len(users), num_samples), dtype=np.int32)
+
+        for i, u in enumerate(users):
+            neg_pool = neg_items_list_per_user[u]
+            random.shuffle(neg_pool)  # shuffle once
+            if len(neg_pool) >= num_samples:
+                neg_items = neg_pool[:num_samples]
+            else:
+                # pad with repeated items
+                neg_items = (neg_pool * (num_samples // len(neg_pool) + 1))[:num_samples]
+            neg_items_list[i] = neg_items
+
+        pos_items += n_usr
+        neg_items_list += n_usr
+
+        all_epoch_data.append((users, pos_items, neg_items_list))
+
+    return all_epoch_data
+
+import os
+import pickle
+import numpy as np
+from tqdm import tqdm
+
+def precompute_all_epochs_samples(train_df, full_adj_list, n_usr, num_epochs, seed=42, save_dir="precomputed"):
+    os.makedirs(save_dir, exist_ok=True)
+    config_signature = f"{config['dataset']}_seed{seed}_epochs{num_epochs}_samples{config['samples']}"
+    filename = os.path.join(save_dir, f"precomputed_{config_signature}.pkl")
+
+    # Try to load from file
+    if os.path.exists(filename):
+        print(f"Loading precomputed samples from {filename}")
+        with open(filename, "rb") as f:
+            return pickle.load(f)
+
+    print(f"Precomputing samples for {num_epochs} epochs using fast indexing with seed {seed}...")
+    np.random.seed(seed)
+
+    num_samples = config["samples"]
+    max_neg_len = max(len(full_adj_list[u]['neg_items']) for u in full_adj_list)
+
+    neg_item_matrix = []
+    neg_item_lengths = []
+    for u in range(n_usr):
+        negs = np.array(full_adj_list[u]['neg_items'])
+        if len(negs) == 0:
+            negs = np.array([0])
+        np.random.shuffle(negs)
+        neg_item_matrix.append(negs)
+        neg_item_lengths.append(len(negs))
+
+    all_epoch_data = []
+    
+    for epoch in tqdm(range(num_epochs), desc="Generating epoch samples"):
+        shuffled_df = train_df.sample(frac=1, random_state=seed + epoch).reset_index(drop=True)
+        interactions = shuffled_df.to_numpy()
+        users = interactions[:, 0].astype(int)
+        pos_items = interactions[:, 1].astype(int)
+
+        neg_items_list = np.zeros((len(users), num_samples), dtype=np.int32)
+
+        for i, u in enumerate(users):
+            negs = neg_item_matrix[u]
+            len_negs = neg_item_lengths[u]
+            idxs = np.random.randint(0, len_negs, size=num_samples)
+            neg_items_list[i] = negs[idxs]
+
+        pos_items += n_usr
+        neg_items_list += n_usr
+
+        all_epoch_data.append((users, pos_items, neg_items_list))
+
+    # Save to file
+    with open(filename, "wb") as f:
+        pickle.dump(all_epoch_data, f)
+
+    return all_epoch_data
+
+
+
                  
 def shuffle(*arrays, **kwargs):
 

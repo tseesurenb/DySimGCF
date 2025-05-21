@@ -42,5 +42,7 @@ config = {
     'diff': args.diff,
     's_temp': args.s_temp,
     'l_temp': args.l_temp,
-    'l_weight': args.l_weight
+    'l_weight': args.l_weight,
+    'e_drop': args.e_drop,
+    'loss_f': args.loss_f
 }
