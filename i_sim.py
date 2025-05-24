@@ -16,7 +16,7 @@ bg = "\033[1;32m"
 bb = "\033[1;34m"
 rs = "\033[0m"
 
-def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min_k=10, max_k=100):
+def jaccard_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=False, min_k=10, max_k=100):
     """
     Compute Jaccard similarity between users/items and filter to keep top-k similar users/items.
     
@@ -187,9 +187,16 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
     
     pbar = tqdm(range(similarity_matrix.shape[0]), bar_format='{desc}{bar:30} {percentage:3.0f}% | {elapsed}{postfix}', ascii="░❯")
     pbar.set_description(desc)
-    
+
     for i in pbar:
-        # Determine K value for this user/item
+
+            
+        # Get the non-zero elements in the i-th row
+        row = similarity_matrix.getrow(i).tocoo()
+        if row.nnz == 0:
+            continue
+
+         # Determine K value for this user/item
         if adaptive:
             # Calculate adaptive K based on square root scaling
             current_k = int(top_k * np.sqrt(interaction_counts[i]) / np.sqrt(avg_interaction_count))
@@ -200,11 +207,6 @@ def cosine_sim(matrix, top_k=20, self_loop=False, verbose=-1, adaptive=True, min
                 pbar.set_postfix_str(f"User {i}: {interaction_counts[i]} interactions → K={current_k}")
         else:
             current_k = top_k
-            
-        # Get the non-zero elements in the i-th row
-        row = similarity_matrix.getrow(i).tocoo()
-        if row.nnz == 0:
-            continue
         
         # Extract indices and values of the row
         row_data = row.data

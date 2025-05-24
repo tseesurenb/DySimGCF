@@ -23,36 +23,19 @@ bg = "\033[1;32m"
 bb = "\033[1;34m"
 rs = "\033[0m"
 
-# Start a new wandb run to track this script.
-run = wandb.init(
-    # Set the wandb entity where your project will be logged (generally your team name).
-    entity="tseesuren-novelsoft",
-    # Set the wandb project where this run will be logged.
-    project="dysimgcf",
-    # Track hyperparameters and run metadata.
-    config={
-        "learning_rate": config['lr'],
-        "architecture": "DySimGCF",
-        "dataset": "Ml-100k",
-        "epochs": config['epochs'],
-    },
-)
-
-
-import torch
-import torch.nn.functional as F
-
-import torch
-import torch.nn.functional as F
-
+if config['wandb']:
+    run = wandb.init(
+        entity="tseesuren-novelsoft",
+        project=config['model'],
+        config={
+            "learning_rate": config['lr'],
+            "architecture": "DySimGCF",
+            "dataset": config['dataset'],
+            "epochs": config['epochs'],
+        },
+    )
 
 def compute_loss(epoch, users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
-    # if epoch <= 50:
-    #     ccl_loss, reg_loss, _ = compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-    #     return ccl_loss, reg_loss, None
-    # else:
-    #     bpr_loss, reg_loss, _ = compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
-    #     return bpr_loss, reg_loss, None
 
     if config['loss_f'] == 'ccl':
         ccl_loss, reg_loss, _ = compute_ccl_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0)
@@ -164,6 +147,7 @@ def compute_bpr_loss(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, ne
     
     return bpr_loss, reg_loss, None
 
+
 def compute_bpr_loss_orig(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb0, neg_emb0):
     
     # Compute regularization loss
@@ -180,7 +164,6 @@ def compute_bpr_loss_orig(users, users_emb, pos_emb, neg_emb, user_emb0, pos_emb
     bpr_loss = torch.mean(F.softplus(neg_scores - pos_scores))  # Using softplus for stability
         
     return bpr_loss, reg_loss, None
-
 
 def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, adj_list, all_epoch_data, device, g_seed):
    
@@ -206,6 +189,17 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
     max_recall = 0.0
     max_prec = 0.0
     max_epoch = 0
+
+    # Track best metrics for final reporting
+    best_recall = 0.0
+    best_prec = 0.0
+    best_f1 = 0.0
+    best_ncdg = 0.0
+    
+    # Initialize current metrics (will be updated during evaluation)
+    current_recall = 0.0
+    current_prec = 0.0
+    current_ncdg = 0.0
     
     neg_sample_time = 0.0
     
@@ -215,25 +209,7 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
     
         total_losses, bpr_losses, reg_losses, contrast_losses  = [], [], [], []
         
-        # Shuffle the DataFrame
-        # train_df = train_df.sample(frac=1).reset_index(drop=True)
-
-        # if config['samples'] == 1:
-        #     S = ut.neg_uniform_sample(train_df, adj_list, n_users)
-        #     users = torch.Tensor(S[:, 0]).long().to(device)
-        #     pos_items = torch.Tensor(S[:, 1]).long().to(device)
-        #     neg_items = torch.Tensor(S[:, 2]).long().to(device)
-        # else:
-        #     users, pos_items, neg_items_list = ut.multiple_neg_uniform_sample(train_df, adj_list, n_users)
-        #     users = torch.Tensor(users).long().to(device)
-        #     pos_items = torch.Tensor(pos_items).long().to(device)
-        #     neg_items = torch.Tensor(neg_items_list).long().to(device)
-                
-        # if config['shuffle']: 
-        #     users, pos_items, neg_items = ut.shuffle(users, pos_items, neg_items)
-
         # Get precomputed data for this epoch
-        #print(f"epoch: {epoch}, all data: {all_epoch_data[epoch]}")
         users, pos_items, neg_items_list = all_epoch_data[epoch]
 
         # Convert to tensors
@@ -243,38 +219,20 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
         
         n_batches = len(users) // b_size + 1
         
-        if epoch % config["epochs_per_eval"] == 0:
-            model.eval()
-            with torch.no_grad():
-                _, out = model(edge_index, edge_attrs)
-                final_u_emb, final_i_emb = torch.split(out, (n_users, n_items))
-                recall,  prec, ncdg = ut.get_metrics(final_u_emb, final_i_emb, test_df, topK, interactions_t, device)
-            
-            if ncdg > max_ncdg:
-                max_ncdg = ncdg
-                max_recall = recall
-                max_prec = prec
-                max_epoch = epoch
-            
-            pbar.set_postfix_str(f"prec {br}{prec:.4f}{rs} | recall {br}{recall:.4f}{rs} | ncdg {br}{ncdg:.4f} ({max_ncdg:.4f}, {max_recall:.4f}, {max_prec:.4f} at {max_epoch}) {rs}")
-            pbar.refresh()
-                                
+        # TRAINING PHASE FIRST
         model.train()
         for (b_i, (b_users, b_pos, b_neg)) in enumerate(ut.minibatch(users, pos_items, neg_items, batch_size=b_size)):
                                      
-            u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
-
             u_emb, pos_emb, neg_emb, u_emb0, pos_emb0, neg_emb0 = model.encode_minibatch(b_users, b_pos, b_neg, edge_index, edge_attrs)
-
             bpr_loss, reg_loss, contrast_loss = compute_loss(epoch, b_users, u_emb, pos_emb, neg_emb, u_emb0,  pos_emb0, neg_emb0)
             
             reg_loss = decay * reg_loss
             
             if contrast_loss != None:
                 lambda_contrastive = 0.05
-                total_loss = bpr_loss + reg_loss + lambda_contrastive * contrast_loss
+                total_loss = bpr_loss + config['r_loss_w'] * reg_loss + lambda_contrastive * contrast_loss
             else:
-                total_loss = bpr_loss + reg_loss
+                total_loss = bpr_loss + config['r_loss_w'] * reg_loss
             
             optimizer.zero_grad()
             total_loss.backward()
@@ -290,22 +248,59 @@ def train_and_eval(model, optimizer, train_df, test_df, edge_index, edge_attrs, 
             # Update the description of the outer progress bar with batch information
             pbar.set_description(f"{config['model']}({g_seed:2}) | #ed {len(edge_index[0]):6} | ep({epochs}) {epoch} | ba({n_batches}) {b_i:3} | loss {total_loss.detach().item():.4f}")
         
-        f1 = (2 * recall * prec / (recall + prec)) if (recall + prec) != 0 else 0.0
+        # EVALUATION PHASE - After training, skip epoch 0
+        if epoch % config["epochs_per_eval"] == 0 and epoch > 0:
+            model.eval()
+            with torch.no_grad():
+                _, out = model(edge_index, edge_attrs)
+                final_u_emb, final_i_emb = torch.split(out, (n_users, n_items))
+                recall, prec, ncdg = ut.get_metrics(final_u_emb, final_i_emb, test_df, topK, interactions_t, device)
+                
+                # Update current metrics
+                current_recall = recall
+                current_prec = prec
+                current_ncdg = ncdg
+            
+            if ncdg > max_ncdg or (ncdg == max_ncdg and recall >= max_recall):
+                max_ncdg = ncdg
+                max_recall = recall
+                max_prec = prec
+                max_epoch = epoch
+
+                # Store the best metrics for final reporting
+                best_recall = recall
+                best_prec = prec
+                best_ncdg = ncdg
+                best_f1 = (2 * recall * prec / (recall + prec)) if (recall + prec) != 0 else 0.0
+            
+            pbar.set_postfix_str(f"prec {br}{prec:.4f}{rs} | recall {br}{recall:.4f}{rs} | ncdg {br}{ncdg:.4f} ({max_ncdg:.4f}, {max_recall:.4f}, {max_prec:.4f} at {max_epoch}) {rs}")
+            pbar.refresh()
         
-        metrics['recall'].append(round(recall,4))
-        metrics['precision'].append(round(prec,4))
-        metrics['f1'].append(round(f1,4))
-        metrics['ncdg'].append(round(ncdg,4))
+        # Calculate F1 for current metrics
+        current_f1 = (2 * current_recall * current_prec / (current_recall + current_prec)) if (current_recall + current_prec) != 0 else 0.0
         
+        # Store metrics for ALL epochs (this ensures consistent array length)
+        metrics['recall'].append(round(current_recall, 4))
+        metrics['precision'].append(round(current_prec, 4))
+        metrics['f1'].append(round(current_f1, 4))
+        metrics['ncdg'].append(round(current_ncdg, 4))
+        
+        # Store losses for ALL epochs
         losses['bpr_loss'].append(round(np.mean(bpr_losses), 4) if bpr_losses else np.nan)
         losses['reg_loss'].append(round(np.mean(reg_losses), 4) if reg_losses else np.nan)
         losses['total_loss'].append(round(np.mean(total_losses), 4) if total_losses else np.nan)
         
-        if contrast_loss != None:
-            run.log({"ncdg": ncdg, "recall@20": recall, "reg_loss": np.mean(reg_losses), "contrast_loss": np.mean(contrast_losses),  "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
-        else:
-            run.log({"ncdg": ncdg, "recall@20": recall, "reg_loss": np.mean(reg_losses), "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
-            
+        if config['wandb']:
+            if contrast_loss != None:
+                run.log({"ncdg": current_ncdg, "recall@20": current_recall, "reg_loss": np.mean(reg_losses), "contrast_loss": np.mean(contrast_losses),  "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
+            else:
+                run.log({"ncdg": current_ncdg, "recall@20": current_recall, "reg_loss": np.mean(reg_losses), "bpr_loss": np.mean(bpr_losses), "total_loss": np.mean(total_losses),})
+
+    # Print final results
+    # print('--------------**********--------------')
+    # print(f"The max NDCG {max_ncdg:.4f} occurs at epoch {max_epoch/10}")
+    # print(f"Best metrics - Recall: {best_recall:.4f}, Precision: {best_prec:.4f}, NDCG: {best_ncdg:.4f}")
+    
     return (losses, metrics)
 
 def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', verbose = -1):
@@ -400,6 +395,7 @@ def exec_exp(orig_train_df, orig_test_df, exp_n = 1, g_seed=42, device='cpu', ve
         #save predictions to a file
         np.save(f"./models/preds/{config['model']}_{config['dataset']}_{config['batch_size']}__{config['layers']}_{config['edge']}", predictions)
 
-    run.finish()
+    if config['wandb']:
+        run.finish()
     
     return losses, metrics

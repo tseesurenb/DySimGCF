@@ -52,7 +52,7 @@ def print_metrics(recalls, precs, f1s, ncdg, max_indices, stats):
         print(f"{name:>8}: {values_str} | {mean_str}, {std_str}")
     
     print(f"{35*'-'}")    
-    print(f"   Max NDCG occurs at epoch {br}{(max_indices) * config['epochs_per_eval']}{rs}")
+    print(f"   The max NDCG occurs at epoch {br}{(max_indices)}{rs}")
     
 
 def encode_ids(train_df: pd.DataFrame, test_df: pd.DataFrame) -> tuple:
@@ -306,8 +306,6 @@ def multiple_neg_uniform_sample_old(train_df, full_adj_list, n_usr):
     
     return S
 
-
-
 def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
     interactions = train_df.to_numpy()
     users = interactions[:, 0].astype(int)
@@ -326,49 +324,6 @@ def multiple_neg_uniform_sample(train_df, full_adj_list, n_usr):
     # Return components separately
     return users, pos_items, neg_items_list
 
-
-import numpy as np
-from tqdm import tqdm
-import random
-
-def precompute_all_epochs_samples_old(train_df, full_adj_list, n_usr, num_epochs, config):
-    print(f"Precomputing samples for {num_epochs} epochs (fast index-based)...")
-
-    num_samples = config["samples"]
-    all_epoch_data = []
-
-    # Prepare neg items for each user once
-    neg_items_list_per_user = {}
-    for u in full_adj_list:
-        negs = list(full_adj_list[u]['neg_items'])
-        if len(negs) == 0:
-            negs = [0]  # fallback
-        neg_items_list_per_user[u] = negs
-
-    for epoch in tqdm(range(num_epochs), desc="Generating epoch samples"):
-        shuffled_df = train_df.sample(frac=1).reset_index(drop=True)
-        interactions = shuffled_df.to_numpy()
-        users = interactions[:, 0].astype(int)
-        pos_items = interactions[:, 1].astype(int)
-
-        neg_items_list = np.zeros((len(users), num_samples), dtype=np.int32)
-
-        for i, u in enumerate(users):
-            neg_pool = neg_items_list_per_user[u]
-            random.shuffle(neg_pool)  # shuffle once
-            if len(neg_pool) >= num_samples:
-                neg_items = neg_pool[:num_samples]
-            else:
-                # pad with repeated items
-                neg_items = (neg_pool * (num_samples // len(neg_pool) + 1))[:num_samples]
-            neg_items_list[i] = neg_items
-
-        pos_items += n_usr
-        neg_items_list += n_usr
-
-        all_epoch_data.append((users, pos_items, neg_items_list))
-
-    return all_epoch_data
 
 import os
 import pickle
@@ -428,9 +383,6 @@ def precompute_all_epochs_samples(train_df, full_adj_list, n_usr, num_epochs, se
         pickle.dump(all_epoch_data, f)
 
     return all_epoch_data
-
-
-
                  
 def shuffle(*arrays, **kwargs):
 

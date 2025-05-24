@@ -7,7 +7,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(prog="DySimGCF", description="Dynamic GCN-based CF recommender")
-    parser.add_argument('--model', type=str, default='hyperGCN', help='rec-model, support [LightGCN, NGCF, DySimGCF]')
+    parser.add_argument('--model', type=str, default='DySimGCF', help='rec-model, support [LightGCN, NGCF, DySimGCF]')
     parser.add_argument('--dataset', type=str, default='ml_100k', help="available datasets: [ml-100k, yelp2018, amazon-book]")
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--emb_dim', type=int, default=64, help="the embedding size for learning parameters")
@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument('--eigen_K', type=int, default=300)
     parser.add_argument('--abl_study', type=int, default=0)
     parser.add_argument('--self_loop', type=bool, default=False)
+    parser.add_argument('--wandb', type=bool, default=False)
     parser.add_argument('--shuffle', type=bool, default=False)
     parser.add_argument('--weighted_neg_sampling', type=bool, default=False)
     parser.add_argument('--samples', type=int, default=1)
@@ -44,5 +45,6 @@ def parse_args():
     parser.add_argument('--save_sim_mat', action='store_true')
     parser.add_argument('--margin', type=float, default=0.1, help="the margin in BPR loss")
     parser.add_argument('--l_weight', type=int, default=150, help="weigt for loss")
+    parser.add_argument('--r_loss_w', type=float, default=1.0)
 
     return parser.parse_args()

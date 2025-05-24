@@ -79,7 +79,7 @@ class DySimGCF(MessagePassing):
         # self.edge_attrs = None # This was in original user code, but not used.
         self.add_self_loops = self_loop # Not used in current forward logic
         self.last_edge_key = None
-        self.dropout_rate = dropout_rate # This is for edge dropout
+        self.dropout_rate = config['e_drop'] #dropout_rate # This is for edge dropout
         
     def forward(self, x, edge_index, edge_attrs):
         edge_index_prop, edge_attrs_prop = edge_index, edge_attrs # For clarity

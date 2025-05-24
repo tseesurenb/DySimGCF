@@ -44,5 +44,7 @@ config = {
     'l_temp': args.l_temp,
     'l_weight': args.l_weight,
     'e_drop': args.e_drop,
-    'loss_f': args.loss_f
+    'loss_f': args.loss_f,
+    'r_loss_w': args.r_loss_w,
+    'wandb': args.wandb
 }
